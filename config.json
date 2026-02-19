@@ -1,0 +1,13 @@
+{
+  "ip": "rucat.kynetux.net",
+  "port": 25565,
+  "version": "1.21.11",
+  "username": "mujin1127@outlook.com",
+  "auth": "microsoft",
+  "language": "zh-tw",
+  "whitelist": [
+    "ID1",
+    "ID2"
+  ],
+  "moneyTransferTarget": "ID"
+}
