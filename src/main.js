@@ -109,6 +109,7 @@ function buildBotOptions() {
     username: config.username,
     auth: config.auth,
     version: config.version,
+    hideErrors: true, // 隱藏協議解析錯誤（如 world_particles PartialReadError）的 console 輸出
     profilesFolder: path.join(runtimeDataDir, '.minecraft'),
     onMsaCode: (data) => {
       console.log(`[MSA] 請於 ${data.verification_uri} 輸入代碼：${data.user_code}，有效期 ${Math.round(data.expires_in / 60)} 分鐘`)
