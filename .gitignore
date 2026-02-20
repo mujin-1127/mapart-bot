@@ -1,2 +1,7 @@
 /dist/
 /node_modules/
+
+# config：只保留 global，其餘皆忽略
+config/*
+!config/global/
+!config/global/**
