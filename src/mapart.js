@@ -91,6 +91,7 @@ const mapart = {
         commandManager.registerCommand(require('./commands/mapart/name'));
         commandManager.registerCommand(require('./commands/mapart/copy'));
         commandManager.registerCommand(require('./commands/mapart/wrap'));
+        commandManager.registerCommand(require('./commands/mapart/drop'));
         
         logger(true, 'INFO', 'Mapart module initialized with CommandManager');
     }
