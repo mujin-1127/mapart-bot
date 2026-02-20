@@ -1,9 +1,9 @@
 {
 	"schematic": {
-		"filename": "example_0_0.nbt",
-		"placementPoint_x": 0,
-		"placementPoint_y": 100,
-		"placementPoint_z": 0
+		"filename": "240511阿烏拉/mapart_0_0.nbt",
+		"placementPoint_x": 100032,
+		"placementPoint_y": 62,
+		"placementPoint_z": 100031
 	},
 	"materialsMode": "station",
 	"station": "station_01.json",

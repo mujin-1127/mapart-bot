@@ -1,0 +1,38 @@
+{
+	"hash": "fb815c32e7a250e0f0a756f6aea9109289f6909cafb4af54155e24998aa80977",
+	"server": 0,
+	"placedBlock": 11054,
+	"totalBlocks": 16512,
+	"currentPalette": 16,
+	"startTime": 1771572263727,
+	"endTime": -1,
+	"useTime": -1,
+	"origin": {
+		"x": 0,
+		"y": 0,
+		"z": 0
+	},
+	"destination": {
+		"x": 127,
+		"y": 2,
+		"z": 128
+	},
+	"placement_origin": {
+		"x": 100032,
+		"y": 62,
+		"z": 100031
+	},
+	"placement_destination": {
+		"x": 100159,
+		"y": 64,
+		"z": 100159
+	},
+	"debug": {
+		"discconnectCount": 13,
+		"findNextTotalCounter": 12459,
+		"restock_count": 11,
+		"restock_takeTime": 175391,
+		"placeCount": 11234,
+		"temp": 0
+	}
+}

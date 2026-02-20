@@ -1,20 +1,34 @@
 {
-	"stationName": "Bot",
-	"stationWarp": "BlackChangTW_2",
-	"stationServer": 1,
-	"offset":{
-		"N": [0,1,-3],
-		"S": [0,1,3],
-		"W": [-3,1,0],
-		"E": [3,1,0],
-		"bN": [0,1,-2],
-		"bS": [0,1,2],
-		"bW": [-2,1,0],
-		"bE": [2,1,0]
-	},
-	"overfull":[279,24,-210,"W","bW"],
-	"materials":[
-		["slime_block"       ,[270,24,-240,"E","bE"]],
-		["birch_planks"      ,[270,24,-239,"E","bE"]]
+  "stationName": "Bot",
+  "stationWarp": "繪圖機",
+  "stationServer": 1,
+  "offset": {
+    "N": [0, 1, -3],
+    "S": [0, 1, 3],
+    "W": [-3, 1, 0],
+    "E": [3, 1, 0],
+    "bN": [0, 1, -2],
+    "bS": [0, 1, 2],
+    "bW": [-2, 1, 0],
+    "bE": [2, 1, 0]
+  },
+  "overfull": [100165, 65, 100071, "W", "bE"],
+  "materials": [
+    ["white_carpet", [100165, 65, 100108, "W", "bE"]],
+    ["orange_carpet", [100165, 65, 100093, "W", "bE"]],
+    ["magenta_carpet", [100165, 65, 100084, "W", "bE"]],
+    ["light_blue_carpet", [100165, 65, 100072, "W", "bE"]],
+    ["yellow_carpet", [100165, 65, 100096, "W", "bE"]],
+    ["pink_carpet", [100165, 65, 100087, "W", "bE"]],
+    ["gray_carpet", [100165, 65, 100114, "W", "bE"]],
+    ["light_gray_carpet", [100165, 65, 100111, "W", "bE"]],
+    ["cyan_carpet", [100165, 65, 100075, "W", "bE"]],
+    ["purple_carpet", [100165, 65, 100081, "W", "bE"]],
+    ["blue_carpet", [100165, 65, 100078, "W", "bE"]],
+    ["brown_carpet", [100165, 65, 100105, "W", "bE"]],
+    ["green_carpet", [100165, 65, 100102, "W", "bE"]],
+    ["red_carpet", [100165, 65, 100090, "W", "bE"]],
+    ["black_carpet", [100165, 65, 100117, "W", "bE"]],
+    ["cobblestone", [100165, 65, 100071, "W", "bE"]]
   ]
 }

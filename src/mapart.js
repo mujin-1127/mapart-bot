@@ -262,14 +262,14 @@ const mapart = {
             try{
                 mapart_cfg = await readConfig(`${process.cwd()}/config/${bot_id}/mapart.json`)
             }catch(e){
-                bot.logger(true,"ERROR",`個別Bot地圖畫設定資訊載入失敗\nFilePath: ${process.cwd()}/config/${bot_id}/mapart.json`)
+                logger(true,"ERROR",`個別Bot地圖畫設定資訊載入失敗\nFilePath: ${process.cwd()}/config/${bot_id}/mapart.json`)
                 await sleep(1000)
                 console.log("Please Check The Json Format")
                 console.log(`Error Msg: \x1b[31m${e.message}\x1b[0m`)
                 console.log("You can visit following websites the fix: ")
                 console.log(`\x1b[33mhttps://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/JSON_bad_parse\x1b[0m`)
                 console.log(`\x1b[33mhttps://www.google.com/search?q=${(e.message).replaceAll(" ","+")}\x1b[0m`)
-                bot.gkill(202)
+                throw e
             }
         }
         //mapart.json (global)
@@ -282,14 +282,14 @@ const mapart = {
             try{
                 mapart_global_cfg = await readConfig(`${process.cwd()}/config/global/mapart.json`)
             }catch(e){
-                bot.logger(true,"ERROR",`全Bot地圖畫設定資訊載入失敗\nFilePath: ${process.cwd()}/config/global/mapart.json`)
+                logger(true,"ERROR",`全Bot地圖畫設定資訊載入失敗\nFilePath: ${process.cwd()}/config/global/mapart.json`)
                 await sleep(1000)
                 console.log("Please Check The Json Format")
                 console.log(`Error Msg: \x1b[31m${e.message}\x1b[0m`)
                 console.log("You can visit following websites the fix: ")
                 console.log(`\x1b[33mhttps://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/JSON_bad_parse\x1b[0m`)
                 console.log(`\x1b[33mhttps://www.google.com/search?q=${(e.message).replaceAll(" ","+")}\x1b[0m`)
-                bot.gkill(202)
+                throw e
             }
         }
     }
@@ -372,7 +372,7 @@ async function mp_build(task) {
     mapart_build_cfg_cache.schematic.folder = mapart_global_cfg.schematic_folder;
     mapart_build_cfg_cache.bot_id = bot_id
     mapart_build_cfg_cache.replaceMaterials = mapart_global_cfg.replaceMaterials
-    mapart_build_cfg_cache.server = bot.botinfo.server
+    mapart_build_cfg_cache.server = (bot.botinfo && typeof bot.botinfo.server === 'number') ? bot.botinfo.server : 0
     //這裡還要注入flag -s id
     delete mapart_build_cfg_cache.open;
     delete mapart_build_cfg_cache.wrap;
@@ -383,7 +383,7 @@ async function mp_build(task) {
     let FLAG_autonext = false           //蓋到某張 或 沒有檔案為止
     let FLAG_autonext_value = ''
     let FLAG_server = false
-    let FLAG_serverValue = bot.botinfo.server
+    let FLAG_serverValue = (bot.botinfo && typeof bot.botinfo.server === 'number') ? bot.botinfo.server : 0
     let FLAG_disableWebHookNotification = false
     let auto_regex = /^(\d+)_(\d+)$/;
     for (let i = 0; i < task.content.length; i++) {
@@ -444,11 +444,15 @@ async function mp_build(task) {
     let crt_filename_match = crt_filename.match(f_reg)
     crt_filename = crt_filename.replace(/_\d+_\d+$/, '');
     let crtFileIndex
-    const webhookClient = new WebhookClient({ url: mapart_global_cfg.discord_webhookURL });
+    let webhookClient = null;
+    const webhookURL = (mapart_global_cfg.discord_webhookURL || '').trim();
+    if (webhookURL && webhookURL.startsWith('https://discord.com/api/webhooks/')) {
+        try { webhookClient = new WebhookClient({ url: webhookURL }); } catch (e) { /* 無效 URL 不建立 */ }
+    }
     if (crt_filename_match) {
         crtFileIndex = [parseInt(crt_filename_match[1]), parseInt(crt_filename_match[2])]
     }
-    if (!FLAG_disableWebHookNotification) {
+    if (!FLAG_disableWebHookNotification && webhookClient) {
         let mapartfinishEmbed = gen_mapartFinishEmbed();
         let wh = {
             //content: '',//`<@${mapart_settings.dc_tag}>`,
@@ -526,7 +530,7 @@ async function mp_build(task) {
                 ],
             })
         }
-        webhookClient.send(wh)
+        webhookClient.send(wh).catch(e => console.error('[Mapart] Webhook 發送失敗:', e.message))
     }
     if (FLAG_autonext) {  //check args to build next ?
         let autonext_stopAt
@@ -551,14 +555,14 @@ async function mp_build(task) {
         }
         // const crt_index =
         if (matchStop) {
-            let mapartAutofinishEmbed = gen_mapartAutoFinishEmbed()
-            webhookClient.send({
-                // content: '',//`<@${mapart_settings.dc_tag}>`,
-                username: bot.username,
-                avatarURL: `https://mc-heads.net/avatar/${bot.username}`,
-                embeds: [mapartAutofinishEmbed],
-            })
-            //send all finsih webhook
+            if (webhookClient) {
+                let mapartAutofinishEmbed = gen_mapartAutoFinishEmbed()
+                webhookClient.send({
+                    username: bot.username,
+                    avatarURL: `https://mc-heads.net/avatar/${bot.username}`,
+                    embeds: [mapartAutofinishEmbed],
+                }).catch(e => console.error('[Mapart] Webhook 發送失敗:', e.message))
+            }
         } else {
             let nextV3 = [
                 mapart_build_cfg_cache.schematic.placementPoint_x,
@@ -1681,10 +1685,11 @@ async function pickMapItem(mpID) {
     try { clearTimeout(to) } catch (e) { }
 }
 async function save(caec) {
-    await fsp.writeFile(`${process.cwd()}/config/${bot_id}/mapart.json`, JSON.stringify(caec, null, '\t'), function (err, result) {
-        if (err) console.log('mapart save error', err);
-    });
-    //console.log('task complete')
+    try {
+        await fsp.writeFile(`${process.cwd()}/config/${bot_id}/mapart.json`, JSON.stringify(caec, null, '\t'))
+    } catch (err) {
+        console.log('mapart save error', err)
+    }
 }
 async function stationRestock(stationConfig, RS_obj_array) {
     while (true) {
