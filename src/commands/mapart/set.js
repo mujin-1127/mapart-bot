@@ -27,11 +27,14 @@ module.exports = {
         }
         
         mapart_set_cache.schematic.filename = task.content[2];
-        mapart_set_cache.schematic.placementPoint_x = parseInt(task.content[3]);
-        mapart_set_cache.schematic.placementPoint_y = parseInt(task.content[4]);
-        mapart_set_cache.schematic.placementPoint_z = parseInt(task.content[5]);
         
-        if (Math.abs(mapart_set_cache.schematic.placementPoint_x + 64) % 128 != 0) {
+        // 如果有提供座標才更新，否則保留舊有座標
+        if (task.content[3] !== undefined) mapart_set_cache.schematic.placementPoint_x = parseInt(task.content[3]);
+        if (task.content[4] !== undefined) mapart_set_cache.schematic.placementPoint_y = parseInt(task.content[4]);
+        if (task.content[5] !== undefined) mapart_set_cache.schematic.placementPoint_z = parseInt(task.content[5]);
+        
+        // 只有在更新了 X 座標的情況下才進行檢查
+        if (task.content[3] !== undefined && Math.abs(mapart_set_cache.schematic.placementPoint_x + 64) % 128 != 0) {
             await taskreply(task,
                 `&7[&bMP&7] &cX座標可能錯了`,
                 `X座標可能錯了`,
