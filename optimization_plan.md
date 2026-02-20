@@ -22,9 +22,10 @@
 - **實踐**：每個指令變為獨立的物件或類別。新增指令只需增加新的檔案/定義，不需修改主分發器。
 - **進度**：已建立 `CommandManager.js` 並完成所有指令 (`set`, `info`, `build`, `pause`, `resume`, `stop`, `open`, `debug`, `test`, `name`, `copy`, `wrap`) 的遷移。
 
-### 4. 建築模式插件化 (Building Model Plugins) [待處理]
-- **目的**：`litematicPrinter.js` 中的模式 (mapart, redstone, building) 目前使用 `switch` 分支。
-- **實踐**：將建築模式改為策略模式 (Strategy Pattern)，允許開發者在不修改 `litematicPrinter.js` 核心的情況下，注入新的建築模式。
+### 4. 建築模式插件化 (Building Model Plugins) [已完成]
+- **目的**：將 `lib/litematicPrinter.js` 中的不同建造模式（mapart, redstone, building）拆分為獨立的插件。
+- **實踐**：建立 `PrinterManager` 與 `BasePrinter` 介面。每種模式只需實作 `build` 函式。
+- **進度**：已完成 `PrinterManager`、`BasePrinter` 以及 `MapartPrinter`、`BuildingPrinter`、`RedstonePrinter` 的遷移。
 
 ---
 
