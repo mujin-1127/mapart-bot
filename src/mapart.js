@@ -764,6 +764,8 @@ async function mp_open(task) {
     }
     console.log(mapart_open_cfg_cache["open"])
     await mcFallout.warp(bot, mapart_open_cfg_cache["open"]["warp"])
+    await bot.chat("/delhome mapart")
+    await sleep(100)
     await bot.chat("/sethome mapart")
     await sleep(1000)
     bot.setQuickBarSlot(8);
@@ -915,6 +917,8 @@ async function mp_open(task) {
         await inv_sort()
         if (mpstate[i].finish || mpstate[i].skip) continue
         if (getEmptySlot().length == 0) {
+            await bot.chat("/delhome mapart")
+            await sleep(100)
             await bot.chat("/sethome mapart")
             await sleep(200)
             await mcFallout.warp(bot, mapart_open_cfg_cache["open"]["warp"])
@@ -956,6 +960,8 @@ async function mp_open(task) {
         }
         console.log(`open At ${mps.mapartRealPos}`)
         await sleep(500)
+        await bot.chat("/delhome mapart")
+        await sleep(100)
         await bot.chat("/sethome mapart")
         await bot.simpleClick.leftMouse(43)
         await bot.simpleClick.rightMouse(44)
