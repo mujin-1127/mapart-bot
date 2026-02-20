@@ -1,11 +1,11 @@
 {
 	"hash": "fb815c32e7a250e0f0a756f6aea9109289f6909cafb4af54155e24998aa80977",
 	"server": 0,
-	"placedBlock": 11054,
+	"placedBlock": 16512,
 	"totalBlocks": 16512,
-	"currentPalette": 16,
+	"currentPalette": 17,
 	"startTime": 1771572263727,
-	"endTime": -1,
+	"endTime": 1771578274215,
 	"useTime": -1,
 	"origin": {
 		"x": 0,
@@ -28,11 +28,11 @@
 		"z": 100159
 	},
 	"debug": {
-		"discconnectCount": 13,
-		"findNextTotalCounter": 12459,
-		"restock_count": 11,
-		"restock_takeTime": 175391,
-		"placeCount": 11234,
+		"discconnectCount": 15,
+		"findNextTotalCounter": 13102,
+		"restock_count": 13,
+		"restock_takeTime": 200028,
+		"placeCount": 13234,
 		"temp": 0
 	}
 }
