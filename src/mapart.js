@@ -4,8 +4,6 @@ const fsp = require('fs').promises
 const crypto = require('crypto');
 const { Schematic } = require('prismarine-schematic');
 const { Vec3 } = require('vec3')
-const v = require('vec3')
-const sd = require('silly-datetime');
 const nbt = require('prismarine-nbt')
 const promisify = f => (...args) => new Promise((resolve, reject) => f(...args, (err, res) => err ? reject(err) : resolve(res)))
 const parseNbt = promisify(nbt.parse);
@@ -17,10 +15,11 @@ const pathfinder = require(`../lib/pathfinder`);
 const schematic = require(`../lib/schematic`);
 const litematicPrinter = require('../lib/litematicPrinter');
 const station = require('../lib/station');
-const console = require('console');
-const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
+const { sleep, readConfig, saveConfig, v, hashConfig } = require('../lib/utils');
+const globalLogger = require('../lib/logger');
+
 const wait = () => new Promise(setImmediate)
-var whetherBuild = false, whetherPause = false, stop = false;
+let whetherBuild = false, whetherPause = false, stop = false;
 let logger, mcData, bot_id, bot
 // 地圖畫面向方向 (用於不同角度 圖工作等)
 let mp_direction = {
@@ -249,46 +248,39 @@ const mapart = {
         },
     ],
     async init(bott, user_id, lg) {
-        logger = lg
+        logger = lg || globalLogger.module('Mapart').log.bind(globalLogger)
         bot_id = user_id;
         bot = bott
         mcData = require('minecraft-data')(bot.version)
         //mapart.json
-        if (!fs.existsSync(`${process.cwd()}/config/${bot_id}/mapart.json`)) {
+        const botConfigPath = `${process.cwd()}/config/${bot_id}/mapart.json`
+        if (!fs.existsSync(botConfigPath)) {
             logger(true, 'INFO', `Creating config - mapart.json`)
-            save(mapart_cfg)
+            await saveConfig(botConfigPath, mapart_cfg)
         } else {
-            //bot.logger(true,"INFO",`加載個別Bot地圖畫設定資訊...`)
             try{
-                mapart_cfg = await readConfig(`${process.cwd()}/config/${bot_id}/mapart.json`)
+                mapart_cfg = await readConfig(botConfigPath)
             }catch(e){
-                logger(true,"ERROR",`個別Bot地圖畫設定資訊載入失敗\nFilePath: ${process.cwd()}/config/${bot_id}/mapart.json`)
+                logger(true,"ERROR",`個別Bot地圖畫設定資訊載入失敗\nFilePath: ${botConfigPath}`)
                 await sleep(1000)
                 console.log("Please Check The Json Format")
                 console.log(`Error Msg: \x1b[31m${e.message}\x1b[0m`)
-                console.log("You can visit following websites the fix: ")
-                console.log(`\x1b[33mhttps://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/JSON_bad_parse\x1b[0m`)
-                console.log(`\x1b[33mhttps://www.google.com/search?q=${(e.message).replaceAll(" ","+")}\x1b[0m`)
                 throw e
             }
         }
         //mapart.json (global)
-        if (!fs.existsSync(`${process.cwd()}/config/global/mapart.json`)) {
+        const globalConfigPath = `${process.cwd()}/config/global/mapart.json`
+        if (!fs.existsSync(globalConfigPath)) {
             logger(true, 'INFO', `Creating global config - mapart.json`)
-            await fsp.writeFile(`${process.cwd()}/config/global/mapart.json`, JSON.stringify(mapart_global_cfg, null, '\t'), function (err, result) {
-                if (err) console.log('mapart save error', err);
-            });
+            await saveConfig(globalConfigPath, mapart_global_cfg)
         } else {
             try{
-                mapart_global_cfg = await readConfig(`${process.cwd()}/config/global/mapart.json`)
+                mapart_global_cfg = await readConfig(globalConfigPath)
             }catch(e){
-                logger(true,"ERROR",`全Bot地圖畫設定資訊載入失敗\nFilePath: ${process.cwd()}/config/global/mapart.json`)
+                logger(true,"ERROR",`全Bot地圖畫設定資訊載入失敗\nFilePath: ${globalConfigPath}`)
                 await sleep(1000)
                 console.log("Please Check The Json Format")
                 console.log(`Error Msg: \x1b[31m${e.message}\x1b[0m`)
-                console.log("You can visit following websites the fix: ")
-                console.log(`\x1b[33mhttps://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/JSON_bad_parse\x1b[0m`)
-                console.log(`\x1b[33mhttps://www.google.com/search?q=${(e.message).replaceAll(" ","+")}\x1b[0m`)
                 throw e
             }
         }
@@ -308,7 +300,8 @@ async function mp_debug(task) {
     }
 }
 async function mp_set(task) {
-    let mapart_set_cache = await readConfig(`${process.cwd()}/config/${bot_id}/mapart.json`);
+    const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`
+    let mapart_set_cache = await readConfig(configPath);
     if (!fs.existsSync(mapart_global_cfg.schematic_folder + task.content[2])) {
         await taskreply(task,
             `&7[&bMP&7] &c未發現投影 &7${task.content[2]} &r請重新輸入`,
@@ -330,7 +323,7 @@ async function mp_set(task) {
         return;
     }
     try {
-        await fsp.writeFile(`${process.cwd()}/config/${bot_id}/mapart.json`, JSON.stringify(mapart_set_cache, null, '\t'));
+        await saveConfig(configPath, mapart_set_cache);
     } catch (e) {
         await taskreply(task,
             `&7[&bMP&7] &c設置失敗`,
@@ -347,7 +340,8 @@ async function mp_set(task) {
     );
 }
 async function mp_info(task) {
-    let mapart_info_cfg_cache = await readConfig(`${process.cwd()}/config/${bot_id}/mapart.json`);
+    const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`
+    let mapart_info_cfg_cache = await readConfig(configPath);
     //console.log(mapart_info_cfg_cache)
     let lppq = await litematicPrinter.progress_query(task, bot)
     //console.log(lppq)
@@ -358,17 +352,18 @@ async function mp_info(task) {
             bot.chat(`/m ${task.minecraftUser} ${mapart_info_cfg_cache.schematic.filename} ${prog}%`);
             break;
         case 'console':
-            console.log(`${mapart_info_cfg_cache.schematic.filename} ${prog}%`)
+            logger(true, 'INFO', `${mapart_info_cfg_cache.schematic.filename} ${prog}%`)
             break;
         case 'discord':
-            console.log(`Discord Reply not implemented ${discord_msg}`);
+            console.log(`Discord Reply not implemented`);
             break;
         default:
             break;
     }
 }
 async function mp_build(task) {
-    let mapart_build_cfg_cache = await readConfig(`${process.cwd()}/config/${bot_id}/mapart.json`);
+    const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`
+    let mapart_build_cfg_cache = await readConfig(configPath);
     mapart_build_cfg_cache.schematic.folder = mapart_global_cfg.schematic_folder;
     mapart_build_cfg_cache.bot_id = bot_id
     mapart_build_cfg_cache.replaceMaterials = mapart_global_cfg.replaceMaterials
@@ -712,7 +707,8 @@ async function mp_test(task) {
     //let sch = await schematic.loadFromFile(`C:\\Users\\User\\AppData\\Roaming\\.minecraft\\schematics\\goodraid.litematic`)
     //console.log(sch)
     // return
-    let mapart_build_cfg_cache = await readConfig(`${process.cwd()}/config/${bot_id}/mapart.json`);
+    const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`
+    let mapart_build_cfg_cache = await readConfig(configPath);
     let stationConfig = await readConfig(`${process.cwd()}/config/global/${mapart_build_cfg_cache.station}`);
     let needReStock = [
         { name: task.content[2], count: parseInt(task.content[3]) },
@@ -727,7 +723,8 @@ async function mp_test(task) {
 }
 async function mp_open(task) {
     const Item = require('prismarine-item')(bot.version)
-    let mapart_open_cfg_cache = await readConfig(`${process.cwd()}/config/${bot_id}/mapart.json`);
+    const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`
+    let mapart_open_cfg_cache = await readConfig(configPath);
     let stationConfig
     if (mapart_open_cfg_cache["materialsMode"] == 'station') {
         stationConfig = await readConfig(`${process.cwd()}/config/global/${mapart_open_cfg_cache.station}`);
@@ -1039,17 +1036,20 @@ async function mp_open(task) {
         return result
     }
     function getItemFrame(tg_pos) {
+        if (bot.entityIndexer) {
+            return bot.entityIndexer.getEntityAt(tg_pos);
+        }
         for (let etsIndex in bot.entities) {
-            if (!(bot.entities[etsIndex].mobType == 'Glow Item Frame' || bot.entities[etsIndex].mobType == 'Item Frame')) continue
+            if (!(bot.entities[etsIndex].name == 'glow_item_frame' || bot.entities[etsIndex].name == 'item_frame')) continue
             if (!bot.entities[etsIndex].position.equals(tg_pos)) continue
             return etsIndex, bot.entities[etsIndex]
-            //console.log(etsIndex,bot.entities[etsIndex])
         }
     }
 }
 async function mp_name(task) {
     const Item = require('prismarine-item')(bot.version)
-    let mapart_name_cfg_cache = await readConfig(`${process.cwd()}/config/${bot_id}/mapart.json`);
+    const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`
+    let mapart_name_cfg_cache = await readConfig(configPath);
     let stationConfig
     if (mapart_name_cfg_cache["materialsMode"] == 'station') {
         stationConfig = await readConfig(`${process.cwd()}/config/global/${mapart_name_cfg_cache.station}`);
@@ -1186,11 +1186,13 @@ async function mp_name(task) {
         //break;
     }
     function getItemFrame(tg_pos) {
+        if (bot.entityIndexer) {
+            return bot.entityIndexer.getEntityAt(tg_pos);
+        }
         for (let etsIndex in bot.entities) {
-            if (!(bot.entities[etsIndex].mobType == 'Glow Item Frame' || bot.entities[etsIndex].mobType == 'Item Frame')) continue
+            if (!(bot.entities[etsIndex].name == 'glow_item_frame' || bot.entities[etsIndex].name == 'item_frame')) continue
             if (!bot.entities[etsIndex].position.equals(tg_pos)) continue
             return etsIndex, bot.entities[etsIndex]
-            //console.log(etsIndex,bot.entities[etsIndex])
         }
     }
 }
@@ -1202,7 +1204,8 @@ async function mp_name(task) {
 async function mp_copy(task) {
     console.log("**此功能需要把廢土自動整理功能關掉**")
     const Item = require('prismarine-item')(bot.version)
-    let mapart_name_cfg_cache = await readConfig(`${process.cwd()}/config/${bot_id}/mapart.json`);
+    const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`
+    let mapart_name_cfg_cache = await readConfig(configPath);
     let stationConfig
     if (mapart_name_cfg_cache["materialsMode"] == 'station') {
         stationConfig = await readConfig(`${process.cwd()}/config/global/${mapart_name_cfg_cache.station}`);
@@ -1437,17 +1440,20 @@ async function mp_copy(task) {
         //break;
     }
     function getItemFrame(tg_pos) {
+        if (bot.entityIndexer) {
+            return bot.entityIndexer.getEntityAt(tg_pos);
+        }
         for (let etsIndex in bot.entities) {
-            if (!(bot.entities[etsIndex].mobType == 'Glow Item Frame' || bot.entities[etsIndex].mobType == 'Item Frame')) continue
+            if (!(bot.entities[etsIndex].name == 'glow_item_frame' || bot.entities[etsIndex].name == 'item_frame')) continue
             if (!bot.entities[etsIndex].position.equals(tg_pos)) continue
             return etsIndex, bot.entities[etsIndex]
-            //console.log(etsIndex,bot.entities[etsIndex])
         }
     }
 }
 async function mp_wrap(task) {
     console.log("**此功能需要把廢土自動整理功能關掉**")
-    let mapart_name_cfg_cache = await readConfig(`${process.cwd()}/config/${bot_id}/mapart.json`);
+    const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`
+    let mapart_name_cfg_cache = await readConfig(configPath);
     // let stationConfig
     // if (mapart_name_cfg_cache["materialsMode"] == 'station') {
     //     stationConfig = await readConfig(`${process.cwd()}/config/global/${mapart_name_cfg_cache.station}`);
@@ -1637,7 +1643,7 @@ async function pickMapItem(mpID) {
         if (ck) break;
         let et = bot.entities;
         for (i in et) {
-            if (et[i]?.mobType == 'Item' && et[i]?.metadata[8]?.itemId == mcData.itemsByName['filled_map'].id && et[i]?.metadata[8].nbtData?.value?.map?.value == mpID) {
+            if (et[i]?.name == 'item' && et[i]?.metadata[8]?.itemId == mcData.itemsByName['filled_map'].id && et[i]?.metadata[8].nbtData?.value?.map?.value == mpID) {
                 if (et[i].onGround) await pathfinder.astarfly(bot, new Vec3(Math.round(et[i].position.x - 0.5), Math.round(et[i].position.y - 1), Math.round(et[i].position.z - 0.5)), null, null, null, true)
                 else await pathfinder.astarfly(bot, new Vec3(Math.round(et[i].position.x - 0.5), Math.round(et[i].position.y), Math.round(et[i].position.z - 0.5)), null, null, null, true)
             }
@@ -1875,11 +1881,6 @@ async function taskreply(task, mc_msg, console_msg, discord_msg) {
 }
 async function notImplemented(task) {
     taskreply(task, "Not Implemented", "Not Implemented", "Not Implemented")
-}
-async function readConfig(file) {
-    var raw_file = await fsp.readFile(file);
-    var com_file = await JSON.parse(raw_file);
-    return com_file;
 }
 
 module.exports = mapart

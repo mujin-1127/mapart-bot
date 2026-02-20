@@ -4,6 +4,8 @@ const readline = require('readline')
 const mineflayer = require('mineflayer')
 const ResourcePackHandler = require('./utils/ResourcePackHandler')
 const mapart = require('./mapart')
+const logger = require('../lib/logger').module('Main')
+const { readConfig } = require('../lib/utils')
 
 require('events').EventEmitter.defaultMaxListeners = 0
 
@@ -119,11 +121,13 @@ function buildBotOptions() {
   return opts
 }
 
+// --- 空間索引管理 (優化 getItemFrame 效率) ---
+const EntityIndexer = require('../lib/entityIndexer');
+let entityIndexer;
+
 // --- Mapart 地圖畫外掛 ---
 // 供 mapart.init 使用的 logger
-function mapartLogger(showInConsole, level, msg) {
-  if (showInConsole) console.log(`[Mapart][${level}] ${msg}`)
-}
+const mapartLogger = logger.log.bind(logger)
 
 // 確保 mapart 設定目錄存在（config/<bot_id>、config/global）
 function ensureMapartConfigDirs(botId) {
@@ -195,8 +199,13 @@ async function startBot() {
 
   // ----- On spawn -----
   bot.once('spawn', async () => {
-    console.log('bot已成功啟動!')
-    console.log('whitelist:', getCleanWhitelist())
+    logger.info('bot已成功啟動!')
+    logger.info(`whitelist: ${getCleanWhitelist().join(', ')}`)
+    
+    // 初始化空間索引
+    entityIndexer = new EntityIndexer(bot);
+    bot.entityIndexer = entityIndexer; // 導出給其他模組使用
+    
     bot.botinfo = { server: 0 }
     bot.loadPlugin(require('mineflayer-collectblock').plugin)
     bot.chatAddPattern(/^\[傳送\]\s*(.+?)\s*請求傳送到你這裡（請注意安全）。?$/, 'tpa_to_me', 'TPA請求')
