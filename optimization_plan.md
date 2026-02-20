@@ -15,7 +15,7 @@
 
 ---
 
-## 第二階段：重構核心邏輯以符合 OCP (OCP Refactoring) [進行中]
+## 第二階段：重構核心邏輯以符合 OCP (OCP Refactoring) [已完成]
 
 ### 3. 指令分發重構 (Command Strategy Pattern) [已完成]
 - **目的**：將 `src/mapart.js` 中龐大的 `mapart.cmd` 與相關函式（`mp_build`, `mp_set` 等）拆分。
@@ -43,14 +43,31 @@
 
 ---
 
-## 第四階段：穩健性與清理 (Robustness & Cleanup)
+## 第四階段：穩健性與清理 (Robustness & Cleanup) [進行中]
 
-### 7. 錯誤處理與重試機制
+### 7. 錯誤處理與重試機制 [已完成]
 - **目的**：增加對網路波動、伺服器延遲的容錯能力。
-- **實踐**：為開啟箱子、移動等關鍵動作增加統一的重試與逾時處理邏輯。
+- **實作**：
+    - `lib/containerOperation.js`：為開啟容器、提取、存入動作加入 `withRetry` 包裝與 `promiseWithTimeout`。
+    - `lib/mcFallout.js`：為 `warp` 傳送指令加入自動重試機制。
+    - `lib/pathfinder.js`：優化 A* 尋路，加入超時保護與卡死自動脫困機制。
+    - `lib/station.js`：在補給流程中整合了上述重試邏輯。
 
-### 8. 代碼清理
-- **目的**：移除過時的註解、不再使用的變數，並統一名稱規範。
+### 8. 代碼清理與模組化 [已完成]
+- **目的**：移除 `lib/station.js` 中的過時函式（如 `oldrestock`），統一名稱規範，並進一步解耦。
+- **實作**：已將 `station.js` 重構為模組化結構，提取了 `operateBox`、`processBoxList` 等通用邏輯，並統一了補給流程。
+
+---
+
+## 第五階段：進階自動化與狀態管理 (Advanced Automation) [規劃中]
+
+### 9. 智慧補給策略 (Smart Restocking)
+- **目的**：減少往返材料站的次數。
+- **實踐**：根據原理圖進度預測材料消耗，在一次補給中帶齊多種後續材料。
+
+### 10. 自動恢復機制 (Auto-Recovery)
+- **目的**：斷線或異常後能自動恢復任務。
+- **實踐**：建立任務狀態持久化機制，機器人重啟後能讀取最後一次的 `build_cache` 並自動飛回工作地點。
 
 ---
 
