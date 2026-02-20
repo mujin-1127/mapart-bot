@@ -3,6 +3,7 @@ const path = require('path')
 const readline = require('readline')
 const mineflayer = require('mineflayer')
 const ResourcePackHandler = require('./utils/ResourcePackHandler')
+const mapart = require('./mapart')
 
 require('events').EventEmitter.defaultMaxListeners = 0
 
@@ -118,11 +119,43 @@ function buildBotOptions() {
   return opts
 }
 
+// --- Mapart 地圖畫外掛 ---
+// 供 mapart.init 使用的 logger
+function mapartLogger(showInConsole, level, msg) {
+  if (showInConsole) console.log(`[Mapart][${level}] ${msg}`)
+}
+
+// 確保 mapart 設定目錄存在（config/<bot_id>、config/global）
+function ensureMapartConfigDirs(botId) {
+  const base = path.join(process.cwd(), 'config')
+  const dirs = [path.join(base, botId), path.join(base, 'global')]
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  }
+}
+
+// 分發地圖畫指令：content 為已切開的陣列，例如 ['mapart','set','file.nbt','0','100','0']
+function dispatchMapartCommand(bot, content, source, minecraftUser) {
+  if (!content || content.length < 2) return false
+  const prefix = (content[0] || '').toLowerCase()
+  const sub = (content[1] || '').toLowerCase()
+  if (!mapart.identifier.includes(prefix)) return false
+  const cmd = mapart.cmd.find(c => c.vaild && c.identifier.includes(sub))
+  if (!cmd) return false
+  const task = { content, source, minecraftUser: minecraftUser || '' }
+  Promise.resolve(cmd.execute(task)).catch(err => {
+    console.error('[Mapart] 執行錯誤:', err)
+    if (source === 'minecraft-dm' && minecraftUser) bot.chat(`/m ${minecraftUser} &c執行錯誤: ${err.message}`)
+  })
+  return true
+}
+
 // --- Main Bot Logic ---
 // 啟動 bot 並掛載事件與重連邏輯
 async function startBot() {
   const opts = buildBotOptions()
   const bot = mineflayer.createBot(opts)
+  let mapartReady = false
 
   // 初始化並立即啟用資源包處理器（1.20.2+ configuration 階段需要）
   const resourcePackHandler = new ResourcePackHandler(bot, {
@@ -135,16 +168,47 @@ async function startBot() {
   // ----- Chat bridge (stdin -> game) -----
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false })
   rl.on('line', (line) => {
-    try { if (line && line.length) bot.chat(line) } catch (e) { console.error('[RL_CHAT_ERROR]', e) }
+    const trimmed = (line || '').trim()
+    if (!trimmed.length) return
+    // 要發送到遊戲聊天窗的內容，開頭須加 "."
+    if (trimmed.startsWith('.')) {
+      const msg = trimmed.slice(1).trim()
+      if (msg.length) {
+        try { bot.chat(msg) } catch (e) { console.error('[RL_CHAT_ERROR]', e) }
+      }
+      return
+    }
+    const parts = trimmed.split(/\s+/)
+    if (mapart.identifier.includes(parts[0]?.toLowerCase())) {
+      if (!mapartReady) {
+        console.log('[Mapart] 尚未就緒，請等待 bot 進入遊戲後再試。')
+        return
+      }
+      if (dispatchMapartCommand(bot, parts, 'console', '')) return
+      // 只有前綴沒有子指令時，不送進遊戲聊天室，只提示
+      console.log('[Mapart] 請輸入子指令，例如: mp info、mp set 檔名 x y z、mp build')
+      return
+    }
+    // 未加 "." 的內容不會送進遊戲，僅提示
+    console.log('[提示] 要發送到遊戲聊天室請在開頭加 .  例如: .你好')
   })
 
   // ----- On spawn -----
-  bot.once('spawn', () => {
+  bot.once('spawn', async () => {
     console.log('bot已成功啟動!')
     console.log('whitelist:', getCleanWhitelist())
     bot.loadPlugin(require('mineflayer-collectblock').plugin)
     bot.chatAddPattern(/^\[傳送\]\s*(.+?)\s*請求傳送到你這裡（請注意安全）。?$/, 'tpa_to_me', 'TPA請求')
     bot.chatAddPattern(/^\[傳送\]\s*(.+?)\s*請求你傳送到他那裡（請注意安全）。?$/, 'tpa_from_me', 'TPA請求')
+    // 地圖畫外掛：確保設定目錄並初始化
+    ensureMapartConfigDirs(config.username)
+    try {
+      await mapart.init(bot, config.username, mapartLogger)
+      mapartReady = true
+      console.log('[Mapart] 地圖畫外掛已載入，可用 mapart / mp / map 前綴下指令。')
+    } catch (e) {
+      console.error('[Mapart] 初始化失敗:', e.message)
+    }
   })
 
   // ----- TPA handling -----
@@ -182,7 +246,11 @@ async function startBot() {
       const player = cleanPlayerName(directMsgMatch[1])
       const message = directMsgMatch[2].trim()
       if (getCleanWhitelist().includes(player)) {
-        const command = message.split(' ')[0]
+        const parts = message.split(/\s+/)
+        if (parts[0] && mapart.identifier.includes(parts[0].toLowerCase())) {
+          if (mapartReady && dispatchMapartCommand(bot, parts, 'minecraft-dm', player)) return
+        }
+        const command = parts[0]
         if (command === 'dropall') dropAll(bot)
         if (command === 'job') autoJob(bot)
         if (command === 'gorpg') toRpg(bot)
