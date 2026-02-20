@@ -1,4 +1,4 @@
-const { readConfig, saveConfig, taskreply } = require('../../lib/utils');
+const { readConfig, saveConfig, taskreply } = require('../../../lib/utils');
 const fs = require('fs');
 const path = require('path');
 
@@ -10,7 +10,7 @@ module.exports = {
     permissionRequre: 0,
     async execute(task) {
         const bot = task.bot;
-        const bot_id = bot.username; // 或者傳入的 bot_id
+        const bot_id = bot.bot_id || bot.username;
         const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`;
         
         let mapart_set_cache = await readConfig(configPath);

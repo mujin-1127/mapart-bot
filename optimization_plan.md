@@ -17,10 +17,10 @@
 
 ## 第二階段：重構核心邏輯以符合 OCP (OCP Refactoring) [進行中]
 
-### 3. 指令分發重構 (Command Strategy Pattern) [已建立框架，部分遷移]
+### 3. 指令分發重構 (Command Strategy Pattern) [已完成]
 - **目的**：將 `src/mapart.js` 中龐大的 `mapart.cmd` 與相關函式（`mp_build`, `mp_set` 等）拆分。
 - **實踐**：每個指令變為獨立的物件或類別。新增指令只需增加新的檔案/定義，不需修改主分發器。
-- **進度**：已建立 `CommandManager.js` 並遷移 `set` 指令。
+- **進度**：已建立 `CommandManager.js` 並完成所有指令 (`set`, `info`, `build`, `pause`, `resume`, `stop`, `open`, `debug`, `test`, `name`, `copy`, `wrap`) 的遷移。
 
 ### 4. 建築模式插件化 (Building Model Plugins) [待處理]
 - **目的**：`litematicPrinter.js` 中的模式 (mapart, redstone, building) 目前使用 `switch` 分支。

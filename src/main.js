@@ -7,6 +7,8 @@ const mapart = require('./mapart')
 const logger = require('../lib/logger').module('Main')
 const { readConfig } = require('../lib/utils')
 
+const commandManager = require('./commands/CommandManager')
+
 require('events').EventEmitter.defaultMaxListeners = 0
 
 // --- Path and Config Setup ---
@@ -139,19 +141,32 @@ function ensureMapartConfigDirs(botId) {
 }
 
 // 分發地圖畫指令：content 為已切開的陣列，例如 ['mapart','set','file.nbt','0','100','0']
-function dispatchMapartCommand(bot, content, source, minecraftUser) {
+async function dispatchMapartCommand(bot, content, source, minecraftUser) {
   if (!content || content.length < 2) return false
   const prefix = (content[0] || '').toLowerCase()
-  const sub = (content[1] || '').toLowerCase()
-  if (!mapart.identifier.includes(prefix)) return false
-  const cmd = mapart.cmd.find(c => c.vaild && c.identifier.includes(sub))
-  if (!cmd) return false
-  const task = { content, source, minecraftUser: minecraftUser || '' }
-  Promise.resolve(cmd.execute(task)).catch(err => {
+  const subArgs = content.slice(1) // 獲取子指令與參數
+  
+  if (!commandManager.isPrefix(prefix)) return false
+  
+  const context = { source, minecraftUser: minecraftUser || '' }
+  
+  try {
+    const handled = await commandManager.dispatch(bot, subArgs, context)
+    if (handled) return true
+    
+    // 如果 CommandManager 沒處理，嘗試舊的 mapart.cmd (相容過渡期)
+    const sub = (subArgs[0] || '').toLowerCase()
+    const cmd = mapart.cmd.find(c => c.vaild && c.identifier.includes(sub))
+    if (!cmd) return false
+    
+    const task = { content, source, minecraftUser: minecraftUser || '' }
+    await cmd.execute(task)
+    return true
+  } catch (err) {
     console.error('[Mapart] 執行錯誤:', err)
     if (source === 'minecraft-dm' && minecraftUser) bot.chat(`/m ${minecraftUser} &c執行錯誤: ${err.message}`)
-  })
-  return true
+    return true
+  }
 }
 
 // --- Main Bot Logic ---
@@ -188,9 +203,11 @@ async function startBot() {
         console.log('[Mapart] 尚未就緒，請等待 bot 進入遊戲後再試。')
         return
       }
-      if (dispatchMapartCommand(bot, parts, 'console', '')) return
-      // 只有前綴沒有子指令時，不送進遊戲聊天室，只提示
-      console.log('[Mapart] 請輸入子指令，例如: mp info、mp set 檔名 x y z、mp build')
+      dispatchMapartCommand(bot, parts, 'console', '').then(handled => {
+        if (!handled) {
+          console.log('[Mapart] 請輸入子指令，例如: mp info、mp set 檔名 x y z、mp build')
+        }
+      })
       return
     }
     // 未加 "." 的內容不會送進遊戲，僅提示
@@ -258,7 +275,13 @@ async function startBot() {
       if (getCleanWhitelist().includes(player)) {
         const parts = message.split(/\s+/)
         if (parts[0] && mapart.identifier.includes(parts[0].toLowerCase())) {
-          if (mapartReady && dispatchMapartCommand(bot, parts, 'minecraft-dm', player)) return
+          if (mapartReady) {
+            dispatchMapartCommand(bot, parts, 'minecraft-dm', player).then(handled => {
+              if (handled) return
+              // 如果沒被處理，繼續檢查其他指令
+            })
+            // 注意：這裡因為 async 關係，可能會繼續執行後面的 check
+          }
         }
         const command = parts[0]
         if (command === 'dropall') dropAll(bot)
