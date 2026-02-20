@@ -6,6 +6,7 @@ const ResourcePackHandler = require('./utils/ResourcePackHandler')
 const mapart = require('./mapart')
 const logger = require('../lib/logger').module('Main')
 const { readConfig } = require('../lib/utils')
+const WebServer = require('../lib/webServer')
 
 const commandManager = require('./commands/CommandManager')
 
@@ -34,9 +35,10 @@ console.log('---------------------------------')
 function resolveDefaultConfigPath() {
   const candidates = []
 
-  // pkg 版：設定檔放在可寫的執行檔同層
+  // pkg 版：設定檔放在可寫的執行檔同層 或 當前工作目錄
   if (process.pkg) {
     candidates.push(path.join(executableDir, 'config.json'))
+    candidates.push(path.join(process.cwd(), 'config.json'))
   } else {
     // 開發模式：優先專案根，再工作目錄，最後退回執行檔目錄
     candidates.push(path.join(projectRootDir, 'config.json'))
@@ -79,7 +81,12 @@ try {
   config = JSON.parse(configFileContent)
 } catch (error) {
   console.error(`[FATAL] Failed to read or parse config file: ${error.message}`)
-  process.exit(1) // Exit if config is missing or invalid
+  console.log('\n請按 Enter 鍵結束程式...')
+  const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout })
+  rl.question('', () => {
+    rl.close()
+    process.exit(1)
+  })
 }
 
 // 設定檔所在目錄（亦作為 token 快取目錄）
@@ -183,6 +190,10 @@ async function startBot() {
   })
   resourcePackHandler.enable()
   console.log('[ResourcePack] 資源包自動接受已啟用')
+
+  // ----- Web GUI Server -----
+  const webServer = new WebServer(bot, config.webPort || 3000)
+  webServer.start()
 
   // ----- Chat bridge (stdin -> game) -----
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false })

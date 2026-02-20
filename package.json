@@ -11,20 +11,24 @@
   "pkg": {
     "assets": [
       "node_modules/minecraft-data/data/**/*",
-      "node_modules/prismarine-provider-anvil/anvil/**/*"
+      "node_modules/prismarine-provider-anvil/anvil/**/*",
+      "src/gui/public/**/*"
     ]
   },
   "dependencies": {
     "discord.js": "^14.25.1",
     "dotenv": "^17.2.1",
+    "express": "^5.2.1",
     "minecraft-data": "^3.105.0",
     "mineflayer": "^4.35.0",
     "mineflayer-collectblock": "^1.6.0",
+    "open": "^11.0.0",
     "p-timeout": "^7.0.1",
     "prismarine-item": "^1.17.0",
     "prismarine-nbt": "^2.8.0",
     "prismarine-schematic": "^1.2.3",
     "silly-datetime": "^0.1.2",
+    "socket.io": "^4.8.3",
     "vec3": "^0.1.10"
   },
   "devDependencies": {

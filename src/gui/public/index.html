@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mineflayer Bot Dashboard</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1a1a1a; color: #eee; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        .header { background-color: #2c3e50; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.5); position: relative; }
+        
+        .tabs { display: flex; background: #252525; padding: 0 20px; border-bottom: 1px solid #444; }
+        .tab { padding: 12px 25px; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; }
+        .tab:hover { background: #333; }
+        .tab.active { border-bottom: 3px solid #3498db; color: #3498db; background: #333; }
+
+        .container { display: none; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; flex: 1; overflow: hidden; }
+        .container.active { display: grid; }
+        
+        .settings-container { display: none; flex-direction: column; padding: 20px; flex: 1; overflow-y: auto; }
+        .settings-container.active { display: flex; }
+
+        .card { background: #252525; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; flex-direction: column; margin-bottom: 20px; }
+        .card h2 { margin-top: 0; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 20px; }
+        .settings-section { margin-bottom: 30px; border: 1px solid #444; padding: 20px; border-radius: 8px; background: #2c2c2c; }
+        .settings-section h3 { margin-top: 0; color: #3498db; font-size: 1.2em; border-left: 4px solid #3498db; padding-left: 10px; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #bbb; font-size: 0.9em; }
+        .form-control { width: 100%; padding: 10px; background: #333; border: 1px solid #444; color: white; border-radius: 4px; box-sizing: border-box; }
+        .form-control:focus { border-color: #3498db; outline: none; }
+
+        .table-container { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; background: #333; }
+        th, td { padding: 10px; border: 1px solid #444; text-align: left; font-size: 0.9em; }
+        th { background: #2c3e50; color: white; }
+        tr:hover { background: #3d3d3d; }
+        .coord-input { width: 60px; padding: 5px; background: #222; border: 1px solid #444; color: #2ecc71; text-align: center; }
+        
+        .status-item { margin: 10px 0; font-size: 18px; }
+        .status-item span { font-weight: bold; color: #3498db; }
+        .inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; overflow-y: auto; max-height: 400px; padding-right: 10px; }
+        .inventory-item { background: #333; border: 1px solid #444; border-radius: 4px; padding: 5px; text-align: center; position: relative; }
+        .item-count { position: absolute; bottom: 2px; right: 5px; font-size: 12px; background: rgba(0,0,0,0.7); padding: 0 4px; border-radius: 4px; }
+        .item-name { font-size: 11px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        .progress-bar { height: 30px; background: #333; border-radius: 15px; margin: 20px 0; overflow: hidden; border: 2px solid #444; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #3498db, #2ecc71); width: 0%; transition: width 0.5s ease-out; }
+
+        .controls { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+        button { padding: 10px 20px; background: #3498db; border: none; color: white; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #2980b9; }
+        button.save-btn { background: #2ecc71; width: 100%; font-size: 1.1em; font-weight: bold; margin-top: 20px; }
+        button.save-btn:hover { background: #27ae60; }
+        button.btn-danger { background: #e74c3c; padding: 5px 10px; }
+        button.btn-add { background: #3498db; margin-top: 10px; width: auto; }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1a1a1a; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        Mineflayer Bot 控制面板 - <span id="bot-name">連線中...</span>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('dashboard', this)">儀表板</div>
+        <div class="tab" onclick="switchTab('settings', this)">全域設定</div>
+    </div>
+
+    <div id="dashboard" class="container active">
+        <div class="card">
+            <h2>基本資訊</h2>
+            <div class="status-item">伺服器狀態: <span id="online-status">...</span></div>
+            <div class="status-item">座標: <span id="pos">...</span></div>
+            <div class="status-item">血量: <span id="health">...</span> / 20</div>
+            <div class="status-item">飽食度: <span id="food">...</span> / 20</div>
+
+            <h2>地圖畫進度</h2>
+            <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+            <div class="status-item">進度: <span id="progress-text">0%</span> (<span id="placed-blocks">0</span> / <span id="total-blocks">0</span>)</div>
+
+            <div style="flex: 1;"></div>
+            <h2>快捷控制</h2>
+            <div class="controls">
+                <input type="text" id="cmd-input" class="form-control" style="flex: 1;" placeholder="輸入指令 (不加 .)">
+                <button onclick="sendCommand()">執行</button>
+            </div>
+            <div class="controls">
+                <button onclick="sendQuickCmd('mp build')">開始建造</button>
+                <button onclick="sendQuickCmd('mp stop')">中止</button>
+                <button onclick="sendQuickCmd('mp pause')">暫停</button>
+                <button onclick="sendQuickCmd('mp resume')">繼續</button>
+                <button onclick="sendQuickCmd('mp drop')">丟棄物品</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>背包內容</h2>
+            <div id="inventory" class="inventory-grid"></div>
+        </div>
+    </div>
+
+    <div id="settings" class="settings-container">
+        <!-- 機器人特定設定 -->
+        <div class="card">
+            <h2>機器人特定設定 (Bot Specific)</h2>
+            <div class="settings-section">
+                <h3>投影檔設定 (Schematic)</h3>
+                <div class="form-group">
+                    <label>投影檔檔名 (例如: 123.nbt)</label>
+                    <input type="text" id="bot-schematic-filename" class="form-control">
+                </div>
+                <div class="form-grid">
+                    <div class="form-group"><label>放置點 X</label><input type="number" id="bot-pos-x" class="form-control"></div>
+                    <div class="form-group"><label>放置點 Y</label><input type="number" id="bot-pos-y" class="form-control"></div>
+                    <div class="form-group"><label>放置點 Z</label><input type="number" id="bot-pos-z" class="form-control"></div>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h3>材料站名稱</h3>
+                <div class="form-group">
+                    <label>使用的材料站設定檔 (例如: station_01.json)</label>
+                    <input type="text" id="bot-station-file" class="form-control">
+                </div>
+            </div>
+            <button class="save-btn" onclick="saveBotConfig()">儲存機器人設定</button>
+        </div>
+
+        <div class="card">
+            <h2>地圖畫全域設定 (mapart.json)</h2>
+            <div class="form-group">
+                <label>投影資料夾路徑</label>
+                <input type="text" id="mapart-schematic-folder" class="form-control">
+            </div>
+            <button class="save-btn" onclick="saveMapartConfig()">儲存地圖畫設定</button>
+        </div>
+
+        <div class="card">
+            <h2>材料站設定 (station_01.json)</h2>
+            <div class="settings-section">
+                <h3>基本資訊</h3>
+                <div class="form-grid">
+                    <div class="form-group"><label>站點名稱</label><input type="text" id="st-name" class="form-control"></div>
+                    <div class="form-group"><label>傳送點 (/res tp)</label><input type="text" id="st-warp" class="form-control"></div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>材料清單管理</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>材料名稱</th>
+                                <th>X</th><th>Y</th><th>Z</th>
+                                <th>箱子面</th><th>按鈕面</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="st-materials-body"></tbody>
+                    </table>
+                </div>
+                <button class="btn-add" onclick="addMaterialRow()">+ 新增材料項目</button>
+            </div>
+            <button class="save-btn" onclick="saveStationConfig()">儲存材料站設定</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        var currentMapartConfig = {};
+        var currentStationConfig = {};
+        var currentBotConfig = {};
+
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.container, .settings-container').forEach(c => c.classList.remove('active'));
+            
+            if (el) el.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            if (tabId === 'settings') loadConfigs();
+        }
+
+        socket.on('status', (status) => {
+            if (!status.online) {
+                document.getElementById('bot-name').innerText = "機器人離線";
+                document.getElementById('online-status').innerText = "離線";
+                return;
+            }
+            document.getElementById('bot-name').innerText = status.username;
+            document.getElementById('online-status').innerText = "在線";
+            document.getElementById('pos').innerText = `${Math.round(status.pos.x)}, ${Math.round(status.pos.y)}, ${Math.round(status.pos.z)}`;
+            document.getElementById('health').innerText = status.health;
+            document.getElementById('food').innerText = status.food;
+
+            if (status.build_cache) {
+                const bc = status.build_cache;
+                const percent = (((bc.placedBlock || 0) / (bc.totalBlocks || 1)) * 100).toFixed(1);
+                document.getElementById('progress-fill').style.width = percent + "%";
+                document.getElementById('progress-text').innerText = percent + "%";
+                document.getElementById('placed-blocks').innerText = bc.placedBlock || 0;
+                document.getElementById('total-blocks').innerText = bc.totalBlocks || 0;
+            }
+
+            const invContainer = document.getElementById('inventory');
+            invContainer.innerHTML = '';
+            const summary = {};
+            status.inventory.forEach(item => summary[item.name] = (summary[item.name] || 0) + item.count);
+            Object.entries(summary).sort().forEach(([name, count]) => {
+                const div = document.createElement('div');
+                div.className = 'inventory-item';
+                div.innerHTML = `<span class="item-name" title="${name}">${name}</span><span class="item-count">x${count}</span>`;
+                invContainer.appendChild(div);
+            });
+        });
+
+        async function loadConfigs() {
+            try {
+                const resB = await fetch('/api/config/bot');
+                currentBotConfig = await resB.json();
+                
+                if (currentBotConfig && currentBotConfig.schematic) {
+                    document.getElementById('bot-schematic-filename').value = currentBotConfig.schematic.filename || "";
+                    document.getElementById('bot-pos-x').value = currentBotConfig.schematic.placementPoint_x || 0;
+                    document.getElementById('bot-pos-y').value = currentBotConfig.schematic.placementPoint_y || 0;
+                    document.getElementById('bot-pos-z').value = currentBotConfig.schematic.placementPoint_z || 0;
+                }
+                document.getElementById('bot-station-file').value = currentBotConfig.station || "";
+
+                const resM = await fetch('/api/config/mapart');
+                currentMapartConfig = await resM.json();
+                document.getElementById('mapart-schematic-folder').value = currentMapartConfig.schematic_folder;
+
+                const resS = await fetch('/api/config/station');
+                currentStationConfig = await resS.json();
+                renderStationForm(currentStationConfig);
+            } catch (err) { alert('載入失敗: ' + err.message); }
+        }
+
+        function renderStationForm(cfg) {
+            document.getElementById('st-name').value = cfg.stationName;
+            document.getElementById('st-warp').value = cfg.stationWarp;
+
+            renderMaterialsTable(cfg.materials);
+        }
+
+        function renderMaterialsTable(materials) {
+            const tbody = document.getElementById('st-materials-body');
+            tbody.innerHTML = '';
+            materials.forEach((m) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="text" class="form-control mat-name" value="${m[0]}"></td>
+                    <td><input type="number" class="coord-input mat-x" value="${m[1][0]}"></td>
+                    <td><input type="number" class="coord-input mat-y" value="${m[1][1]}"></td>
+                    <td><input type="number" class="coord-input mat-z" value="${m[1][2]}"></td>
+                    <td><input type="text" class="coord-input mat-f" style="width:40px" value="${m[1][3]}"></td>
+                    <td><input type="text" class="coord-input mat-bf" style="width:40px" value="${m[1][4]}"></td>
+                    <td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function addMaterialRow() {
+            const tbody = document.getElementById('st-materials-body');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="text" class="form-control mat-name" value="new_item"></td>
+                <td><input type="number" class="coord-input mat-x" value="0"></td>
+                <td><input type="number" class="coord-input mat-y" value="0"></td>
+                <td><input type="number" class="coord-input mat-z" value="0"></td>
+                <td><input type="text" class="coord-input mat-f" style="width:40px" value="N"></td>
+                <td><input type="text" class="coord-input mat-bf" style="width:40px" value="bN"></td>
+                <td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        async function saveBotConfig() {
+            const newCfg = { ...currentBotConfig };
+            newCfg.schematic.filename = document.getElementById('bot-schematic-filename').value;
+            newCfg.schematic.placementPoint_x = parseInt(document.getElementById('bot-pos-x').value);
+            newCfg.schematic.placementPoint_y = parseInt(document.getElementById('bot-pos-y').value);
+            newCfg.schematic.placementPoint_z = parseInt(document.getElementById('bot-pos-z').value);
+            newCfg.station = document.getElementById('bot-station-file').value;
+            await apiSave('bot', newCfg);
+        }
+
+        async function saveMapartConfig() {
+            currentMapartConfig.schematic_folder = document.getElementById('mapart-schematic-folder').value;
+            await apiSave('mapart', currentMapartConfig);
+        }
+
+        async function saveStationConfig() {
+            const newCfg = { ...currentStationConfig };
+            newCfg.stationName = document.getElementById('st-name').value;
+            newCfg.stationWarp = document.getElementById('st-warp').value;
+            
+            // 伺服器編號預設為 1 (UI 已移除)
+            newCfg.stationServer = 1;
+            
+            // 強制寫入預設 offset 數值
+            newCfg.offset = {
+                "N": [0, 1, -3],
+                "S": [0, 1, 3],
+                "W": [-3, 1, 0],
+                "E": [3, 1, 0],
+                "bN": [0, 1, -2],
+                "bS": [0, 1, 2],
+                "bW": [-2, 1, 0],
+                "bE": [2, 1, 0]
+            };
+            
+            const materials = [];
+            document.querySelectorAll('#st-materials-body tr').forEach(tr => {
+                const name = tr.querySelector('.mat-name').value;
+                const x = parseInt(tr.querySelector('.mat-x').value);
+                const y = parseInt(tr.querySelector('.mat-y').value);
+                const z = parseInt(tr.querySelector('.mat-z').value);
+                const f = tr.querySelector('.mat-f').value;
+                const bf = tr.querySelector('.mat-bf').value;
+                materials.push([name, [x, y, z, f, bf]]);
+            });
+            newCfg.materials = materials;
+            await apiSave('station', newCfg);
+        }
+
+        async function apiSave(type, data) {
+            try {
+                const res = await fetch(`/api/config/${type}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) alert('儲存成功！'); else alert('失敗: ' + result.error);
+            } catch (err) { alert('錯誤: ' + err.message); }
+        }
+
+        function sendCommand() {
+            const input = document.getElementById('cmd-input');
+            if (input.value.trim()) { socket.emit('command', input.value.trim()); input.value = ''; }
+        }
+        function sendQuickCmd(cmd) { socket.emit('command', cmd); }
+        document.getElementById('cmd-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') sendCommand(); });
+    </script>
+</body>
+</html>
