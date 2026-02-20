@@ -197,8 +197,7 @@ async function startBot() {
   bot.once('spawn', async () => {
     console.log('bot已成功啟動!')
     console.log('whitelist:', getCleanWhitelist())
-    // 地圖畫用：分流 ID（若伺服器有 TAB 分流，可在 config.json 設 mapartServer: 1 等）
-    bot.botinfo = { server: (config.mapartServer !== undefined && config.mapartServer !== null) ? config.mapartServer : 0 }
+    bot.botinfo = { server: 0 }
     bot.loadPlugin(require('mineflayer-collectblock').plugin)
     bot.chatAddPattern(/^\[傳送\]\s*(.+?)\s*請求傳送到你這裡（請注意安全）。?$/, 'tpa_to_me', 'TPA請求')
     bot.chatAddPattern(/^\[傳送\]\s*(.+?)\s*請求你傳送到他那裡（請注意安全）。?$/, 'tpa_from_me', 'TPA請求')

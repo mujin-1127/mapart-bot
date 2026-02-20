@@ -372,8 +372,6 @@ async function mp_build(task) {
     mapart_build_cfg_cache.schematic.folder = mapart_global_cfg.schematic_folder;
     mapart_build_cfg_cache.bot_id = bot_id
     mapart_build_cfg_cache.replaceMaterials = mapart_global_cfg.replaceMaterials
-    mapart_build_cfg_cache.server = (bot.botinfo && typeof bot.botinfo.server === 'number') ? bot.botinfo.server : 0
-    //這裡還要注入flag -s id
     delete mapart_build_cfg_cache.open;
     delete mapart_build_cfg_cache.wrap;
     //Flag parse
@@ -382,8 +380,6 @@ async function mp_build(task) {
     //console.log(mapart_build_cfg_cache)
     let FLAG_autonext = false           //蓋到某張 或 沒有檔案為止
     let FLAG_autonext_value = ''
-    let FLAG_server = false
-    let FLAG_serverValue = (bot.botinfo && typeof bot.botinfo.server === 'number') ? bot.botinfo.server : 0
     let FLAG_disableWebHookNotification = false
     let auto_regex = /^(\d+)_(\d+)$/;
     for (let i = 0; i < task.content.length; i++) {
@@ -399,28 +395,12 @@ async function mp_build(task) {
                     //console.log(match);
                 }
                 break;
-            case '-s':
-            case '-server':
-                if (Number.isInteger(parseInt(task.content[i + 1]))) {
-                    FLAG_server = true;
-                    FLAG_serverValue = parseInt(task.content[i + 1]);
-                    i++;
-                } else {
-                    console.log(`-s 缺少分流參數`);
-                    return
-                }
-                break;
             case '-n':
                 FLAG_disableWebHookNotification = true;
                 break;
             default:
                 break;
         }
-    }
-    if (FLAG_server) mapart_build_cfg_cache.server = FLAG_serverValue
-    if (mapart_build_cfg_cache.server == -1) {
-        console.log(`&7${mapart_build_cfg_cache.server} TAB 分流讀取失敗 請重試`)
-        return
     }
     //try {
     await litematicPrinter.build_file(task, bot, litematicPrinter.model_mapart, mapart_build_cfg_cache)
@@ -626,11 +606,6 @@ async function mp_build(task) {
                 // 	inline: false,
                 // },
                 {
-                    name: '分流',
-                    value: `${build_result_query.server}`,
-                    inline: true,
-                },
-                {
                     name: '材料站',
                     value: `${'-'}`,
                     inline: true,
@@ -676,11 +651,6 @@ async function mp_build(task) {
                 {
                     name: '地圖畫大小',
                     value: `\`${Math.round((build_result_query.destination.x + 1) / 128)}*${Math.round((build_result_query.destination.z + 1) / 128)} (${(build_result_query.destination.x + 1)}*${(build_result_query.destination.y + 1)}*${(build_result_query.destination.z + 1)})\``,
-                    inline: true,
-                },
-                {
-                    name: '分流',
-                    value: `${build_result_query.server}`,
                     inline: true,
                 },
                 {
@@ -764,16 +734,13 @@ async function mp_open(task) {
     }
     console.log(mapart_open_cfg_cache["open"])
     await mcFallout.warp(bot, mapart_open_cfg_cache["open"]["warp"])
-    await bot.chat("/delhome mapart")
     await sleep(100)
-    await bot.chat("/sethome mapart")
-    await sleep(1000)
     bot.setQuickBarSlot(8);
     await bot.creative.flyTo(bot.entity.position.offset(0, 0.01, 0))
     bot._client.write("abilities", {
         flags: 2,
-        flyingSpeed: 4.0,
-        walkingSpeed: 4.0
+        flyingSpeed: 1.0,
+        walkingSpeed: 1.0
     })
     const sx = Math.floor((Math.floor((bot.entity.position.x) / 16) - 4) / 8) * 8 * 16 + 64
     const sz = Math.floor((Math.floor((bot.entity.position.z) / 16) - 4) / 8) * 8 * 16 + 64
@@ -917,10 +884,6 @@ async function mp_open(task) {
         await inv_sort()
         if (mpstate[i].finish || mpstate[i].skip) continue
         if (getEmptySlot().length == 0) {
-            await bot.chat("/delhome mapart")
-            await sleep(100)
-            await bot.chat("/sethome mapart")
-            await sleep(200)
             await mcFallout.warp(bot, mapart_open_cfg_cache["open"]["warp"])
             await sleep(500)
             await pathfinder.astarfly(bot, mapart_ori.offset(0, 0, 3), null, null, null, false)
@@ -960,9 +923,6 @@ async function mp_open(task) {
         }
         console.log(`open At ${mps.mapartRealPos}`)
         await sleep(500)
-        await bot.chat("/delhome mapart")
-        await sleep(100)
-        await bot.chat("/sethome mapart")
         await bot.simpleClick.leftMouse(43)
         await bot.simpleClick.rightMouse(44)
         await bot.simpleClick.leftMouse(43)
@@ -998,8 +958,8 @@ async function mp_open(task) {
         await bot.creative.flyTo(bot.entity.position.offset(0, 0.01, 0))
         bot._client.write("abilities", {
             flags: 2,
-            flyingSpeed: 4.0,
-            walkingSpeed: 4.0
+            flyingSpeed: 1.0,
+            walkingSpeed: 1.0
         })
         for (let inv_i = 9; inv_i < 44; inv_i++) {
             if (bot.inventory.slots[inv_i] && bot.inventory.slots[inv_i].name == 'filled_map') {
@@ -1100,8 +1060,8 @@ async function mp_name(task) {
     await bot.creative.flyTo(bot.entity.position.offset(0, 0.01, 0))
     bot._client.write("abilities", {
         flags: 2,
-        flyingSpeed: 4.0,
-        walkingSpeed: 4.0
+        flyingSpeed: 1.0,
+        walkingSpeed: 1.0
     })
     // if (!fs.existsSync(`${process.cwd()}/config/${bot_id}/mapart_cache.json`)) {
     //     save_cache(mapart_cache)
@@ -1253,8 +1213,8 @@ async function mp_copy(task) {
     await bot.creative.flyTo(bot.entity.position.offset(0, 0.01, 0))
     bot._client.write("abilities", {
         flags: 2,
-        flyingSpeed: 4.0,
-        walkingSpeed: 4.0
+        flyingSpeed: 1.0,
+        walkingSpeed: 1.0
     })
     // if (!fs.existsSync(`${process.cwd()}/config/${bot_id}/mapart_cache.json`)) {
     //     save_cache(mapart_cache)
@@ -1749,7 +1709,7 @@ async function stationRestock(stationConfig, RS_obj_array) {
         if (standPos.distanceTo(bot.entity.position) > 100) {
             console.log("距離盒子過遠或不再材料站內");
             console.log(`傳送中 ${stationConfig.stationWarp}`);
-            bot.chat(`/warp ${stationConfig.stationWarp}`);
+            bot.chat(`/res tp${stationConfig.stationWarp}`);
             await sleep(3000);
         }
         await pathfinder.astarfly(bot, standPos, null, null, null, false)
@@ -1759,8 +1719,8 @@ async function stationRestock(stationConfig, RS_obj_array) {
         while (standPos.distanceTo(bot.entity.position) > 1) {
             bot._client.write("abilities", {
                 flags: 2,
-                flyingSpeed: 4.0,
-                walkingSpeed: 4.0
+                flyingSpeed: 1.0,
+                walkingSpeed: 1.0
             })
             await sleep(200);
             await pathfinder.astarfly(bot, standPos, null, null, null, true)
