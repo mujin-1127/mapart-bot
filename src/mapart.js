@@ -1798,40 +1798,62 @@ async function stationRestock(stationConfig, RS_obj_array) {
             }
             //console.log(remain);
         } else {
-            let maxTryTime = 0;
-            ii: while (maxTryTime++ < 10) {
-                //console.log()
-                if (remain <= 0) break;
-                let success_open = false;
-                if (bot.blockAt(shulkerBox_loc)?.name == 'air') {
-                    await bot.activateBlock(bot.blockAt(botton_loc));
-                    await sleep(300);
+            const materialIndices = station.getIndicesOF(stationConfig, restockid);
+            if (materialIndices.length === 0) return;
+            for (let boxIdx = 0; boxIdx < materialIndices.length && remain > 0; boxIdx++) {
+                findItemMaterialsIndex = materialIndices[boxIdx];
+                shulkerBox_loc = v(stationConfig.materials[findItemMaterialsIndex][1]);
+                stand_dirc_offset = stationConfig.offset[stationConfig.materials[findItemMaterialsIndex][1][3]];
+                botton_dirc_offset = stationConfig.offset[stationConfig.materials[findItemMaterialsIndex][1][4]];
+                standPos = shulkerBox_loc.offset(stand_dirc_offset[0], stand_dirc_offset[1], stand_dirc_offset[2]);
+                botton_loc = shulkerBox_loc.offset(botton_dirc_offset[0], botton_dirc_offset[1], botton_dirc_offset[2]);
+                if (standPos.distanceTo(bot.entity.position) > 100) {
+                    console.log("距離盒子過遠 傳送中", stationConfig.stationWarp);
+                    bot.chat(`/res tp${stationConfig.stationWarp}`);
+                    await sleep(3000);
                 }
-                let shu;
-                try {
-                    shu = await pTimeout(bot.openBlock(bot.blockAt(shulkerBox_loc)), 1000);
-                    success_open = true;
-                    console.log("開盒子成功");
-                } catch (e) {
-                    console.log("開盒子失敗");
-                    await sleep(100);
-                    continue ii
+                await pathfinder.astarfly(bot, standPos, null, null, null, true);
+                await sleep(200);
+                while (standPos.distanceTo(bot.entity.position) > 1) {
+                    await sleep(200);
+                    await pathfinder.astarfly(bot, standPos, null, null, null, true);
                 }
-                if (success_open) {
-                    console.log("提取中...")
-                    let tempremain = await containerOperation.withdraw(bot, shu, restockid, remain, false);
-                    shu.close();
-                    if (tempremain == -2) {
-                        console.log("盒子空了 點及按鈕")
+                let maxTryTime = 0;
+                ii: while (maxTryTime++ < 10) {
+                    if (remain <= 0) break;
+                    let success_open = false;
+                    if (bot.blockAt(shulkerBox_loc)?.name == 'air') {
                         await bot.activateBlock(bot.blockAt(botton_loc));
-                        await bot.waitForTicks(8);
-                    } else {
-                        remain = tempremain;
+                        await sleep(300);
                     }
-                    if (remain > 0) await bot.waitForTicks(15);
+                    let shu;
+                    try {
+                        shu = await pTimeout(bot.openBlock(bot.blockAt(shulkerBox_loc)), 1000);
+                        success_open = true;
+                        console.log("開盒子成功");
+                    } catch (e) {
+                        console.log("開盒子失敗");
+                        await sleep(100);
+                        continue ii;
+                    }
+                    if (success_open) {
+                        console.log("提取中...");
+                        let tempremain = await containerOperation.withdraw(bot, shu, restockid, remain, false);
+                        shu.close();
+                        if (tempremain == -2) {
+                            console.log("盒子空了 嘗試下一個同材料箱子");
+                            break ii;
+                        } else {
+                            remain = tempremain;
+                        }
+                        if (remain > 0) {
+                            await bot.waitForTicks(15);
+                            break ii;
+                        }
+                    }
                 }
             }
-
+            if (remain > 0) console.log(`同材料 ${restockid} 的箱子皆已嘗試，尚缺 ${remain}`);
         }
     }
 
