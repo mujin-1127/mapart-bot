@@ -105,6 +105,16 @@
     </div>
 
     <div id="settings" class="settings-container">
+        <!-- 地圖畫全域設定 -->
+        <div class="card">
+            <h2>地圖畫全域設定 (mapart.json)</h2>
+            <div class="form-group">
+                <label>投影資料夾路徑</label>
+                <input type="text" id="mapart-schematic-folder" class="form-control">
+            </div>
+            <button class="save-btn" onclick="saveMapartConfig()">儲存地圖畫設定</button>
+        </div>
+
         <!-- 機器人特定設定 -->
         <div class="card">
             <h2>機器人特定設定 (Bot Specific)</h2>
@@ -120,33 +130,15 @@
                     <div class="form-group"><label>放置點 Z</label><input type="number" id="bot-pos-z" class="form-control"></div>
                 </div>
             </div>
-            <div class="settings-section">
-                <h3>材料站名稱</h3>
-                <div class="form-group">
-                    <label>使用的材料站設定檔 (例如: station_01.json)</label>
-                    <input type="text" id="bot-station-file" class="form-control">
-                </div>
-            </div>
             <button class="save-btn" onclick="saveBotConfig()">儲存機器人設定</button>
         </div>
 
-        <div class="card">
-            <h2>地圖畫全域設定 (mapart.json)</h2>
-            <div class="form-group">
-                <label>投影資料夾路徑</label>
-                <input type="text" id="mapart-schematic-folder" class="form-control">
-            </div>
-            <button class="save-btn" onclick="saveMapartConfig()">儲存地圖畫設定</button>
-        </div>
-
+        <!-- 材料站設定 -->
         <div class="card">
             <h2>材料站設定 (station_01.json)</h2>
             <div class="settings-section">
                 <h3>基本資訊</h3>
-                <div class="form-grid">
-                    <div class="form-group"><label>站點名稱</label><input type="text" id="st-name" class="form-control"></div>
-                    <div class="form-group"><label>傳送點 (/res tp)</label><input type="text" id="st-warp" class="form-control"></div>
-                </div>
+                <div class="form-group"><label>傳送點 (/res tp)</label><input type="text" id="st-warp" class="form-control"></div>
             </div>
 
             <div class="settings-section">
@@ -229,7 +221,6 @@
                     document.getElementById('bot-pos-y').value = currentBotConfig.schematic.placementPoint_y || 0;
                     document.getElementById('bot-pos-z').value = currentBotConfig.schematic.placementPoint_z || 0;
                 }
-                document.getElementById('bot-station-file').value = currentBotConfig.station || "";
 
                 const resM = await fetch('/api/config/mapart');
                 currentMapartConfig = await resM.json();
@@ -242,7 +233,6 @@
         }
 
         function renderStationForm(cfg) {
-            document.getElementById('st-name').value = cfg.stationName;
             document.getElementById('st-warp').value = cfg.stationWarp;
 
             renderMaterialsTable(cfg.materials);
@@ -287,7 +277,8 @@
             newCfg.schematic.placementPoint_x = parseInt(document.getElementById('bot-pos-x').value);
             newCfg.schematic.placementPoint_y = parseInt(document.getElementById('bot-pos-y').value);
             newCfg.schematic.placementPoint_z = parseInt(document.getElementById('bot-pos-z').value);
-            newCfg.station = document.getElementById('bot-station-file').value;
+            // 材料站設定檔預設為 station_01.json (UI 已移除)
+            newCfg.station = "station_01.json";
             await apiSave('bot', newCfg);
         }
 
@@ -298,7 +289,7 @@
 
         async function saveStationConfig() {
             const newCfg = { ...currentStationConfig };
-            newCfg.stationName = document.getElementById('st-name').value;
+            // stationName 保持原樣 (UI 已移除)
             newCfg.stationWarp = document.getElementById('st-warp').value;
             
             // 伺服器編號預設為 1 (UI 已移除)
