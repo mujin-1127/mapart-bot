@@ -15,6 +15,12 @@ let mapart_cfg = {
         placementPoint_y: 100,
         placementPoint_z: 0,
     },
+    "workRegion": {
+        "minX": 0,
+        "minZ": 0,
+        "maxX": 127,
+        "maxZ": 127
+    },
     "materialsMode": "station",
     "station": "mpStation_Example.json",
     "open": {
