@@ -98,7 +98,6 @@ process.on('uncaughtException', (err) => {
 })
 let deathCount = 0
 let dailyRewardTimer = null
-let moneyTransferTimer = null
 let lastClaimDate = null
 const HEART_SYMBOL = '❤'
 
@@ -363,8 +362,6 @@ async function startBot() {
         }
         const command = parts[0]
         if (command === 'dropall') dropAll(bot)
-        if (command === 'job') autoJob(bot)
-        if (command === 'gorpg') toRpg(bot)
       }
     }
   })
@@ -391,7 +388,6 @@ async function startBot() {
     console.log(`連線已中斷: ${reason}, 10秒後將重新連線...`)
     rl.close()
     clearTimeout(dailyRewardTimer)
-    clearInterval(moneyTransferTimer)
     setTimeout(startBot, 10000)
   })
 }
@@ -408,92 +404,6 @@ async function dropAll(bot) {
     }
   }
   console.log('所有物品已丟棄完畢')
-}
-
-// 自動開啟並選擇職業
-async function autoJob(bot) {
-  console.log('正在自動選擇職業...')
-  try {
-    bot.chat('/job')
-    const menu = await bot.waitForWindow()
-    await bot.clickWindow(19, 0, 0) // 點擊礦工
-    await bot.waitForTicks(20)
-    await bot.clickWindow(40, 0, 0) // 點擊確認
-    bot.closeWindow(menu)
-    console.log('職業選擇完畢')
-  } catch (e) {
-    console.error('自動選擇職業失敗:', e)
-  }
-}
-
-// 切換到 RPG 分流
-async function toRpg(bot) {
-  console.log('正在前往RPG分流...')
-  try {
-    bot.chat('/rpg')
-    const menu = await bot.waitForWindow()
-    await bot.clickWindow(9, 0, 0) // 點擊RPG-1
-    await bot.waitForTicks(20)
-    await bot.clickWindow(24, 0, 0) // 點擊確認
-    bot.closeWindow(menu)
-    console.log('已進入RPG分流')
-  } catch (e) {
-    console.error('前往RPG分流失敗:', e)
-  }
-}
-
-// 每小時自動轉帳任務
-async function transferMoneyTask(bot) {
-  const targetPlayer = config.moneyTransferTarget
-  try {
-    console.log('[PAY] 執行每小時轉帳任務...')
-    const amount = await getMoney(bot)
-
-    if (amount !== null && amount > 0) {
-      console.log(`[PAY] 查詢到餘額: ${amount}。正在支付給 ${targetPlayer}...`)
-      bot.chat(`/pay ${targetPlayer} ${amount}`)
-    } else {
-      console.log('[PAY] 餘額為0或查詢失敗，本次不執行轉帳。')
-    }
-  } catch (err) {
-    console.error('[PAY] 轉帳任務發生錯誤:', err.message)
-  }
-}
-
-// 查詢餘額並解析回應訊息
-function getMoney(bot) {
-  console.log('[MONEY] 正在查詢餘額...')
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      bot.removeListener('message', listener)
-      reject(new Error('查詢餘額超時，伺服器沒有回應。'))
-    }, 10000) // 10秒超時
-
-    const listener = (jsonMsg) => {
-      const message = jsonMsg.toString().trim()
-      if (!message) return
-
-      // [偵錯用] 將收到的每一條訊息都印出來，方便我們看到原始資料
-      console.log(`[MONEY_DEBUG] Received message: "${message}"`)
-
-      // 最終修正版正規表示式：
-      // 1. 使用 [\s:：$]* 避免貪婪匹配問題
-      // 2. 使用 ([\d,]+\.?\d*) 來同時支援整數和小數
-      const moneyRegex = /(?:餘額|金錢|您目前擁有|money|balance)[\s:：$]*([\d,]+\.?\d*)/i
-      const match = message.match(moneyRegex)
-
-      if (match && match[1]) {
-        clearTimeout(timeout)
-        bot.removeListener('message', listener)
-        // 使用 parseFloat 來處理小數，並在轉換前移除所有逗號
-        const amount = parseFloat(match[1].replace(/,/g, ''))
-        resolve(amount)
-      }
-    }
-
-    bot.on('message', listener)
-    bot.chat('/money')
-  })
 }
 
 // --- Graceful Shutdown ---

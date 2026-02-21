@@ -5,7 +5,7 @@
 
 ## 1. 專案概觀
 - Mineflayer 自動化機器人，支援 Microsoft / 離線登入。
-- 主要功能：聊天橋接、TPA 白名單、自動每日領獎、自動職業選擇、RPG 分流切換、自動轉帳、死亡 / 斷線自動處理與重連、資源包自動接受。
+- 主要功能：聊天橋接、TPA 白名單、自動每日領獎、死亡 / 斷線自動處理與重連、資源包自動接受。
 - 設定檔與登入快取皆放在執行檔或專案同層（避免寫入系統目錄）。
 
 ## 2. 目錄結構
@@ -24,8 +24,7 @@
   "username": "你的微軟ID",
   "auth": "microsoft",          // microsoft 或 offline
   "language": "zh-tw",
-  "whitelist": ["ID1", "ID2"],
-  "moneyTransferTarget": "ID"
+  "whitelist": ["ID1", "ID2"]
 }
 ```
 > 路徑優先序：`--config=<path>` > 環境變數 `BOT_CONFIG_PATH` > 預設（pkg: 執行檔同層；開發: 專案根 / 工作目錄）。
@@ -50,14 +49,11 @@ npm run build          # 產生 dist/bot.exe
 
 ## 6. 常用指令（遊戲內私訊觸發）
 - `dropall`：丟出所有物品（無保護清單）。
-- `job`：開啟職業菜單並選擇預設職業。
-- `gorpg`：切換到 RPG 分流。
 > 只有在 `whitelist` 內的玩家私訊才會觸發。
 
 ## 7. 主要行為
 - **TPA 白名單**：符合白名單才接受 `/tpyes`，否則 `/tpno`。
 - **每日獎勵**：開服後立即嘗試領取，並排程每日 01:01 自動領取。
-- **自動轉帳**：若設定 `moneyTransferTarget`，每小時查餘額並轉出。
 - **自動重連**：被斷線後 10 秒嘗試重連。
 - **資源包**：自動接受並列印封包除錯資訊（1.20.2+ configuration 階段支援）。
 
