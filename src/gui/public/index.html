@@ -59,6 +59,18 @@
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1a1a1a; }
         ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+
+        /* 檔案瀏覽器 Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
+        .modal-content { background: #252525; margin: 5% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 800px; height: 80%; display: flex; flex-direction: column; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        .file-list { flex: 1; overflow-y: auto; margin: 15px 0; border: 1px solid #444; border-radius: 4px; }
+        .file-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; display: flex; align-items: center; }
+        .file-item:hover { background: #333; }
+        .file-item.directory { color: #3498db; font-weight: bold; }
+        .file-item.file { color: #eee; }
+        .file-item .icon { margin-right: 10px; width: 20px; text-align: center; }
+        .path-display { background: #333; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.9em; margin-bottom: 10px; color: #2ecc71; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -98,24 +110,17 @@
     </div>
 
     <div id="settings" class="settings-container">
-        <!-- 地圖畫全域設定 -->
-        <div class="card">
-            <h2>地圖畫全域設定 (mapart.json)</h2>
-            <div class="form-group">
-                <label>投影資料夾路徑</label>
-                <input type="text" id="mapart-schematic-folder" class="form-control">
-            </div>
-            <button class="save-btn" onclick="saveMapartConfig()">儲存地圖畫設定</button>
-        </div>
-
         <!-- 機器人特定設定 -->
         <div class="card">
             <h2>機器人特定設定 (Bot Specific)</h2>
             <div class="settings-section">
                 <h3>投影檔設定 (Schematic)</h3>
                 <div class="form-group">
-                    <label>投影檔檔名 (例如: 123.nbt)</label>
-                    <input type="text" id="bot-schematic-filename" class="form-control">
+                    <label>投影檔完整路徑 (可手動輸入或點擊瀏覽)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="bot-schematic-filename" class="form-control" placeholder="輸入或選擇 .nbt 檔案路徑...">
+                        <button onclick="openFileBrowser()" style="white-space: nowrap;">瀏覽檔案</button>
+                    </div>
                 </div>
                 <div class="form-grid">
                     <div class="form-group"><label>放置點 X</label><input type="number" id="bot-pos-x" class="form-control"></div>
@@ -155,7 +160,121 @@
         </div>
     </div>
 
+    <!-- 檔案瀏覽器 Modal -->
+    <div id="file-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 style="margin:0">選擇投影檔 (.nbt)</h2>
+                <button class="btn-danger" onclick="closeFileModal()">關閉</button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <input type="text" id="browser-path-input" class="form-control" style="flex: 1;" placeholder="輸入目錄路徑或完整檔案路徑...">
+                <button onclick="loadFiles(document.getElementById('browser-path-input').value)">前往</button>
+            </div>
+            <div id="file-list" class="file-list"></div>
+        </div>
+    </div>
+
     <script>
+        let currentBrowserPath = localStorage.getItem('last_mapart_dir') || "";
+
+        // 使用自訂 UI 檔案瀏覽器
+        function openFileBrowser() {
+            const modal = document.getElementById('file-modal');
+            modal.style.display = 'block';
+            
+            // 優先順序：1. 剛才瀏覽過的目錄 2. 輸入框中的檔案目錄 3. 瀏覽器紀錄的目錄
+            let startPath = currentBrowserPath;
+            const currentVal = document.getElementById('bot-schematic-filename').value;
+            
+            if (currentVal && currentVal.trim()) {
+                const lastSlash = Math.max(currentVal.lastIndexOf('/'), currentVal.lastIndexOf('\\'));
+                if (lastSlash !== -1) {
+                    startPath = currentVal.substring(0, lastSlash);
+                }
+            }
+            
+            loadFiles(startPath || "");
+        }
+
+        function closeFileModal() {
+            document.getElementById('file-modal').style.display = 'none';
+        }
+
+        async function loadFiles(path = "") {
+            try {
+                const res = await fetch(`/api/utils/list-files?path=${encodeURIComponent(path)}`);
+                const data = await res.json();
+                if (data.error) {
+                    // 如果路徑不存在可能是檔案，嘗試直接選取
+                    if (path.toLowerCase().endsWith('.nbt')) {
+                        selectFile(path);
+                        return;
+                    }
+                    throw new Error(data.error);
+                }
+                
+                currentBrowserPath = data.currentDir;
+                localStorage.setItem('last_mapart_dir', currentBrowserPath);
+                document.getElementById('browser-path-input').value = currentBrowserPath;
+                renderFileList(data);
+            } catch (err) {
+                alert('載入失敗: ' + err.message);
+            }
+        }
+
+        // 綁定 Enter 鍵
+        document.addEventListener('DOMContentLoaded', () => {
+            const pathInput = document.getElementById('browser-path-input');
+            if (pathInput) {
+                pathInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') loadFiles(pathInput.value);
+                });
+            }
+        });
+
+        function renderFileList(data) {
+            const container = document.getElementById('file-list');
+            container.innerHTML = '';
+
+            // 上一層按鈕
+            if (data.currentDir !== data.parentDir) {
+                const item = document.createElement('div');
+                item.className = 'file-item directory';
+                item.innerHTML = '<span class="icon">📁</span> .. [上一層]';
+                item.onclick = () => loadFiles(data.parentDir);
+                container.appendChild(item);
+            }
+
+            // 檔案與資料夾
+            data.items.forEach(file => {
+                const item = document.createElement('div');
+                item.className = `file-item ${file.isDirectory ? 'directory' : 'file'}`;
+                item.innerHTML = `<span class="icon">${file.isDirectory ? '📁' : '📄'}</span> ${file.name}`;
+                item.onclick = () => {
+                    if (file.isDirectory) {
+                        loadFiles(file.fullPath);
+                    } else {
+                        selectFile(file.fullPath);
+                    }
+                };
+                container.appendChild(item);
+            });
+        }
+
+        function selectFile(fullPath) {
+            document.getElementById('bot-schematic-filename').value = fullPath;
+            
+            // 記住這個檔案所在的目錄
+            const lastSlash = Math.max(fullPath.lastIndexOf('/'), fullPath.lastIndexOf('\\'));
+            if (lastSlash !== -1) {
+                currentBrowserPath = fullPath.substring(0, lastSlash);
+                localStorage.setItem('last_mapart_dir', currentBrowserPath);
+            }
+            
+            closeFileModal();
+        }
+
         window.onerror = function(msg, url, line, col, error) {
             const statusEl = document.getElementById('socket-status');
             if (statusEl) {
@@ -248,10 +367,6 @@
                     document.getElementById('bot-pos-z').value = currentBotConfig.schematic.placementPoint_z || 0;
                 }
 
-                const resM = await fetch('/api/config/mapart');
-                currentMapartConfig = await resM.json();
-                document.getElementById('mapart-schematic-folder').value = currentMapartConfig.schematic_folder;
-
                 const resS = await fetch('/api/config/station');
                 currentStationConfig = await resS.json();
                 renderStationForm(currentStationConfig);
@@ -303,14 +418,8 @@
             newCfg.schematic.placementPoint_x = parseInt(document.getElementById('bot-pos-x').value);
             newCfg.schematic.placementPoint_y = parseInt(document.getElementById('bot-pos-y').value);
             newCfg.schematic.placementPoint_z = parseInt(document.getElementById('bot-pos-z').value);
-            // 材料站設定檔預設為 station_01.json (UI 已移除)
             newCfg.station = "station_01.json";
             await apiSave('bot', newCfg);
-        }
-
-        async function saveMapartConfig() {
-            currentMapartConfig.schematic_folder = document.getElementById('mapart-schematic-folder').value;
-            await apiSave('mapart', currentMapartConfig);
         }
 
         async function saveStationConfig() {

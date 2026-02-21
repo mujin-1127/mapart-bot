@@ -14,19 +14,18 @@ module.exports = {
         const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`;
         
         let mapart_set_cache = await readConfig(configPath);
-        // 這邊需要全域設定，可以從 bot 或外部傳入
-        const mapart_global_cfg = await readConfig(`${process.cwd()}/config/global/mapart.json`);
         
-        if (!fs.existsSync(mapart_global_cfg.schematic_folder + task.content[1])) {
+        const filePath = task.content[1];
+        if (!fs.existsSync(filePath)) {
             await taskreply(task,
-                `&7[&bMP&7] &c未發現投影 &7${task.content[1]} &r請重新輸入`,
-                `未發現投影 請重新輸入\n資料夾: ${mapart_global_cfg.schematic_folder}\n檔案: ${task.content[1]}`,
+                `&7[&bMP&7] &c未發現投影 &7${filePath} &r請重新輸入`,
+                `未發現投影 請重新輸入\n路徑: ${filePath}`,
                 null,
             );
             return;
         }
         
-        mapart_set_cache.schematic.filename = task.content[1];
+        mapart_set_cache.schematic.filename = filePath;
         
         // 如果有提供座標才更新，否則保留舊有座標
         if (task.content[2] !== undefined) mapart_set_cache.schematic.placementPoint_x = parseInt(task.content[2]);

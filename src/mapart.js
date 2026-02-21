@@ -44,7 +44,6 @@ let mapart_cfg = {
 };
 
 let mapart_global_cfg = {
-    "schematic_folder": "C:\\Users\\User\\AppData\\Roaming\\.minecraft\\schematics\\",
     "discord_webhookURL": "https://discord.com/api/webhooks/1234567890123456789/abc",
     replaceMaterials: []
 };

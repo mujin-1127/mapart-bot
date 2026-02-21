@@ -18,7 +18,6 @@ module.exports = {
         let mapart_build_cfg_cache = await readConfig(configPath);
         const mapart_global_cfg = await readConfig(`${process.cwd()}/config/global/mapart.json`);
         
-        mapart_build_cfg_cache.schematic.folder = mapart_global_cfg.schematic_folder;
         mapart_build_cfg_cache.bot_id = bot_id;
         mapart_build_cfg_cache.replaceMaterials = mapart_global_cfg.replaceMaterials;
         delete mapart_build_cfg_cache.open;
@@ -91,9 +90,42 @@ module.exports = {
         }
 
         if (FLAG_autonext) {
-            // ... autonext logic ...
-            // This part is quite complex and relies on bot.taskManager
-            // For now, I'll keep it as is but it might need further refactoring
+            let nextIndex = [crtFileIndex[0], crtFileIndex[1]];
+            let inc = [1, 0];
+            if (FLAG_autonext_value) {
+                const sp = FLAG_autonext_value.split("_");
+                if (sp.length === 2) {
+                    inc[0] = parseInt(sp[0]);
+                    inc[1] = parseInt(sp[1]);
+                }
+            }
+            nextIndex[0] += inc[0];
+            nextIndex[1] += inc[1];
+
+            const nextFilename = `${crt_filename}_${nextIndex[0]}_${nextIndex[1]}.${crt_filename_type}`;
+            
+            if (fs.existsSync(nextFilename)) {
+                logger.info(`[AutoNext] 發現下一個區塊: ${nextFilename}`);
+                
+                // 更新設定檔
+                const fullCfg = await readConfig(configPath);
+                fullCfg.schematic.filename = nextFilename;
+                await saveConfig(configPath, fullCfg);
+                
+                // 延遲啟動下一個任務
+                setTimeout(async () => {
+                    logger.info(`[AutoNext] 正在啟動自動建造任務...`);
+                    const context = { source: task.source, minecraftUser: task.minecraftUser || '' };
+                    try {
+                        const cmdMgr = require('../CommandManager');
+                        await cmdMgr.dispatch(bot, ["build", "-a", FLAG_autonext_value, FLAG_disableWebHookNotification ? "-n" : ""].filter(Boolean), context);
+                    } catch (e) {
+                        logger.error(`[AutoNext] 自動建造啟動失敗: ${e.message}`);
+                    }
+                }, 10000);
+            } else {
+                logger.info(`[AutoNext] 未發現檔案: ${nextFilename}，自動建造結束。`);
+            }
         }
     }
 };
