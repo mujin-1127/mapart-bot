@@ -5,13 +5,11 @@
   "private": true,
   "scripts": {
     "start": "node src/main.js",
-    "build": "pkg . --targets node18-win-x64 --output dist/bot.exe"
+    "build": "node scripts/build.js"
   },
   "bin": "src/main.js",
   "pkg": {
     "assets": [
-      "node_modules/minecraft-data/data/**/*",
-      "node_modules/prismarine-provider-anvil/anvil/**/*",
       "src/gui/public/**/*"
     ]
   },
