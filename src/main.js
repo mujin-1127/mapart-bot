@@ -193,6 +193,33 @@ async function startBot() {
 
   // ----- Web GUI Server -----
   const webServer = new WebServer(bot, config.webPort || 3000)
+  
+  // 註冊 Web 指令處理器
+  webServer.onCommandHandler = async (cmd) => {
+    const trimmed = (cmd || '').trim()
+    if (!trimmed.length) return false
+    
+    // 開頭是 "." 當作一般聊天
+    if (trimmed.startsWith('.')) {
+      const msg = trimmed.slice(1).trim()
+      if (msg.length) {
+        try { bot.chat(msg) } catch (e) { console.error('[WEB_CHAT_ERROR]', e) }
+      }
+      return true
+    }
+    
+    const parts = trimmed.split(/\s+/)
+    if (mapart.identifier.includes(parts[0]?.toLowerCase())) {
+      if (!mapartReady) {
+        logger.warn('[WebServer] Mapart 尚未就緒')
+        return true
+      }
+      return await dispatchMapartCommand(bot, parts, 'web', '')
+    }
+    
+    return false // 交回 WebServer 用 bot.chat 發送
+  }
+  
   webServer.start()
 
   // ----- Chat bridge (stdin -> game) -----
