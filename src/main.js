@@ -45,18 +45,15 @@ try {
 }
 
 const runtimeDataDir = path.dirname(configPath)
+const WebServer = require('../lib/webServer')
 
 // --- Global Error Handling ---
-process.on('uncaughtException', (err) => {
-  console.log('UncaughtError: ' + (err && err.stack ? err.stack : err))
-})
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('UnhandledRejection:', reason)
-})
+// ...
 
 // --- Multi-Bot Management ---
 const botInstances = new Map()
 let activeBotUsername = null
+let centralWebServer = null
 
 function getBotConfigs() {
   // 如果設定檔有 bots 陣列，則使用多 bot 模式
@@ -71,19 +68,28 @@ function getBotConfigs() {
 }
 
 async function startAllBots() {
+  if (!centralWebServer) {
+    centralWebServer = new WebServer(fullConfig.webPort || 3000, configPath)
+    centralWebServer.on('reload-bots', () => reloadAllBots())
+    centralWebServer.start()
+  }
+
   const configs = getBotConfigs()
   for (const cfg of configs) {
     const botId = cfg.id || cfg.username
     if (!botId) continue
-    const instance = new BotInstance(cfg, runtimeDataDir, configPath)
+    const instance = new BotInstance(cfg, runtimeDataDir, configPath, centralWebServer)
     botInstances.set(botId, instance)
     if (!activeBotUsername) activeBotUsername = botId
-    await instance.start()
+    
+    // 預設不自動連線，除非設定中有註記或是列表第一個
+    // 這裡我們維持手動啟動
   }
 }
 
 async function stopAllBots() {
-  for (const instance of botInstances.values()) {
+  for (const [botId, instance] of botInstances) {
+    if (centralWebServer) centralWebServer.unregisterBot(botId)
     instance.stop()
   }
   botInstances.clear()
