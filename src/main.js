@@ -280,10 +280,6 @@ async function startBot() {
     if (lobbySent) return
     lobbySent = true
     
-    // 延遲 3 秒發送，確保伺服器已準備好處理玩家指令
-    logger.info('[AutoCommand] 3秒後準備發送切換分流指令...')
-    await sleep(3000)
-    
     try {
       const lobbyCmd = config.lobbyCommand || '/server lobby'
       bot.chat(lobbyCmd)
