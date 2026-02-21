@@ -8,7 +8,7 @@ module.exports = {
     longRunning: false,
     permissionRequre: 0,
     async execute(task) {
-        litematicPrinter.pause(true);
+        litematicPrinter.pause(task.bot, true);
         logger.info("已暫停建造");
     }
 }

@@ -84,6 +84,7 @@
     <div class="tabs">
         <div class="tab active" onclick="switchTab('dashboard', this)">儀表板</div>
         <div class="tab" onclick="switchTab('settings', this)">全域設定</div>
+        <div class="tab" onclick="switchTab('accounts', this)">帳號管理</div>
     </div>
 
     <div id="dashboard" class="container active">
@@ -128,19 +129,6 @@
                     <div class="form-group"><label>放置點 Z</label><input type="number" id="bot-pos-z" class="form-control"></div>
                 </div>
                 <h3>建造區域限制 (多機器人協作)</h3>
-                <div class="form-group">
-                    <label>區域選擇</label>
-                    <select id="region-preset" class="form-control" onchange="applyRegionPreset(this.value)">
-                        <option value="full">完整區域 (0-128)</option>
-                        <option value="q1">左上象限 (Q1: 0-63, 0-63)</option>
-                        <option value="q2">右上象限 (Q2: 64-128, 0-63)</option>
-                        <option value="q3">左下象限 (Q3: 0-63, 64-128)</option>
-                        <option value="q4">右下象限 (Q4: 64-128, 64-128)</option>
-                        <option value="left">左半部 (0-63, 0-128)</option>
-                        <option value="right">右半部 (64-128, 0-128)</option>
-                        <option value="custom">自訂區域</option>
-                    </select>
-                </div>
                 <div class="form-grid">
                     <div class="form-group"><label>最小 X</label><input type="number" id="reg-min-x" class="form-control" value="0"></div>
                     <div class="form-group"><label>最小 Z</label><input type="number" id="reg-min-z" class="form-control" value="0"></div>
@@ -195,6 +183,33 @@
         </div>
     </div>
 
+    <div id="accounts" class="settings-container">
+        <div class="card">
+            <h2>機器人帳號管理</h2>
+            <div class="settings-section">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>識別名稱 (ID)</th>
+                                <th>遊戲帳號 (Username)</th>
+                                <th>登入方式</th>
+                                <th>網頁埠號 (Web Port)</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accounts-list-body"></tbody>
+                    </table>
+                </div>
+                <button class="btn-add" onclick="addAccountRow()">+ 新增帳號</button>
+            </div>
+            <button class="save-btn" onclick="saveAccounts()">儲存並重啟所有機器人</button>
+            <p style="color: #e74c3c; font-size: 0.9em; margin-top: 10px;">
+                * 注意：儲存後系統會自動重啟所有機器人以套用新設定。
+            </p>
+        </div>
+    </div>
+
     <!-- 檔案瀏覽器 Modal -->
     <div id="file-modal" class="modal">
         <div class="modal-content">
@@ -211,182 +226,31 @@
     </div>
 
     <script>
+        let currentAccounts = [];
+        var currentMapartConfig = {};
+        var currentStationConfig = {};
+        var currentBotConfig = {};
         let currentBrowserPath = localStorage.getItem('last_mapart_dir') || "";
 
-        // 使用自訂 UI 檔案瀏覽器
-        function openFileBrowser() {
-            const modal = document.getElementById('file-modal');
-            modal.style.display = 'block';
-            
-            // 優先順序：1. 剛才瀏覽過的目錄 2. 輸入框中的檔案目錄 3. 瀏覽器紀錄的目錄
-            let startPath = currentBrowserPath;
-            const currentVal = document.getElementById('bot-schematic-filename').value;
-            
-            if (currentVal && currentVal.trim()) {
-                const lastSlash = Math.max(currentVal.lastIndexOf('/'), currentVal.lastIndexOf('\\'));
-                if (lastSlash !== -1) {
-                    startPath = currentVal.substring(0, lastSlash);
-                }
-            }
-            
-            loadFiles(startPath || "");
-        }
-
-        function closeFileModal() {
-            document.getElementById('file-modal').style.display = 'none';
-        }
-
-        async function loadFiles(path = "") {
-            try {
-                const res = await fetch(`/api/utils/list-files?path=${encodeURIComponent(path)}`);
-                const data = await res.json();
-                if (data.error) {
-                    // 如果路徑不存在可能是檔案，嘗試直接選取
-                    if (path.toLowerCase().endsWith('.nbt')) {
-                        selectFile(path);
-                        return;
-                    }
-                    throw new Error(data.error);
-                }
-                
-                currentBrowserPath = data.currentDir;
-                localStorage.setItem('last_mapart_dir', currentBrowserPath);
-                document.getElementById('browser-path-input').value = currentBrowserPath;
-                renderFileList(data);
-            } catch (err) {
-                alert('載入失敗: ' + err.message);
-            }
-        }
-
-        // 綁定 Enter 鍵
-        document.addEventListener('DOMContentLoaded', () => {
-            const pathInput = document.getElementById('browser-path-input');
-            if (pathInput) {
-                pathInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') loadFiles(pathInput.value);
-                });
-            }
-        });
-
-        function renderFileList(data) {
-            const container = document.getElementById('file-list');
-            container.innerHTML = '';
-
-            // 上一層按鈕
-            if (data.currentDir !== data.parentDir) {
-                const item = document.createElement('div');
-                item.className = 'file-item directory';
-                item.innerHTML = '<span class="icon">📁</span> .. [上一層]';
-                item.onclick = () => loadFiles(data.parentDir);
-                container.appendChild(item);
-            }
-
-            // 檔案與資料夾
-            data.items.forEach(file => {
-                const item = document.createElement('div');
-                item.className = `file-item ${file.isDirectory ? 'directory' : 'file'}`;
-                item.innerHTML = `<span class="icon">${file.isDirectory ? '📁' : '📄'}</span> ${file.name}`;
-                item.onclick = () => {
-                    if (file.isDirectory) {
-                        loadFiles(file.fullPath);
-                    } else {
-                        selectFile(file.fullPath);
-                    }
-                };
-                container.appendChild(item);
-            });
-        }
-
-        function selectFile(fullPath) {
-            document.getElementById('bot-schematic-filename').value = fullPath;
-            
-            // 記住這個檔案所在的目錄
-            const lastSlash = Math.max(fullPath.lastIndexOf('/'), fullPath.lastIndexOf('\\'));
-            if (lastSlash !== -1) {
-                currentBrowserPath = fullPath.substring(0, lastSlash);
-                localStorage.setItem('last_mapart_dir', currentBrowserPath);
-            }
-            
-            closeFileModal();
-        }
-
-        function applyRegionPreset(preset) {
-            const minX = document.getElementById('reg-min-x');
-            const minZ = document.getElementById('reg-min-z');
-            const maxX = document.getElementById('reg-max-x');
-            const maxZ = document.getElementById('reg-max-z');
-
-            switch(preset) {
-                case 'full':  setReg(0, 0, 128, 128); break;
-                case 'q1':    setReg(0, 0, 63, 63); break;
-                case 'q2':    setReg(64, 0, 128, 63); break;
-                case 'q3':    setReg(0, 64, 63, 128); break;
-                case 'q4':    setReg(64, 64, 128, 128); break;
-                case 'left':  setReg(0, 0, 63, 128); break;
-                case 'right': setReg(64, 0, 128, 128); break;
-            }
-
-            function setReg(x1, z1, x2, z2) {
-                minX.value = x1; minZ.value = z1;
-                maxX.value = x2; maxZ.value = z2;
-            }
-        }
-
-        window.onerror = function(msg, url, line, col, error) {
-            const statusEl = document.getElementById('socket-status');
-            if (statusEl) {
-                statusEl.innerText = "JS 錯誤: " + msg + " (第 " + line + " 行)";
-                statusEl.style.color = "#e74c3c";
-            }
-            return false;
-        };
-
-        if (typeof io === 'undefined') {
-            document.getElementById('socket-status').innerText = "錯誤: 無法載入 Socket.io 函式庫";
-            document.getElementById('socket-status').style.color = "#e74c3c";
-        }
-
         const socket = io({
-            transports: ['websocket', 'polling'], // 強制啟用 websocket 優選
+            transports: ['websocket', 'polling'],
             reconnectionAttempts: 5,
             timeout: 10000
         });
 
         socket.on('connect', () => {
-            console.log('Connected to server!');
             document.getElementById('socket-status').innerText = "已連線至主控台";
             document.getElementById('socket-status').style.color = "#2ecc71";
         });
 
         socket.on('disconnect', (reason) => {
-            console.log('Disconnected from server:', reason);
             document.getElementById('socket-status').innerText = "連線已斷開 (" + reason + ")";
             document.getElementById('socket-status').style.color = "#e74c3c";
         });
 
-        socket.on('connect_error', (error) => {
-            console.error('Connection error:', error);
-            document.getElementById('socket-status').innerText = "連線失敗: " + error.message;
-            document.getElementById('socket-status').style.color = "#e74c3c";
-        });
-
-        var currentMapartConfig = {};
-        var currentStationConfig = {};
-        var currentBotConfig = {};
-
-        function switchTab(tabId, el) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.container, .settings-container').forEach(c => c.classList.remove('active'));
-            
-            if (el) el.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
-            if (tabId === 'settings') loadConfigs();
-        }
-
         socket.on('status', (status) => {
             if (!status.online) {
                 document.getElementById('bot-name').innerText = "機器人離線";
-                // 靜默處理，不更新不存在的元素
                 return;
             }
             document.getElementById('bot-name').innerText = status.username;
@@ -412,37 +276,177 @@
             });
         });
 
+        function switchTab(tabId, el) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.container, .settings-container').forEach(c => c.classList.remove('active'));
+            
+            if (el) el.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+            if (tabId === 'settings') loadConfigs();
+            if (tabId === 'accounts') loadAccounts();
+        }
+
+        // Account Management
+        async function loadAccounts() {
+            try {
+                const res = await fetch('/api/accounts');
+                currentAccounts = await res.json();
+                renderAccountsTable(currentAccounts);
+            } catch (err) { alert('載入帳號失敗: ' + err.message); }
+        }
+
+        function renderAccountsTable(accounts) {
+            const tbody = document.getElementById('accounts-list-body');
+            tbody.innerHTML = '';
+            accounts.forEach((acc, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="text" class="form-control acc-id" value="${acc.id || ''}" placeholder="例如: Bot-1"></td>
+                    <td><input type="text" class="form-control acc-username" value="${acc.username || ''}" placeholder="Email 或遊戲 ID"></td>
+                    <td>
+                        <select class="form-control acc-auth">
+                            <option value="microsoft" ${acc.auth === 'microsoft' ? 'selected' : ''}>Microsoft</option>
+                            <option value="offline" ${acc.auth === 'offline' ? 'selected' : ''}>離線 (Offline)</option>
+                        </select>
+                    </td>
+                    <td><input type="number" class="form-control acc-webport" value="${acc.webPort || 3000 + index}" placeholder="埠號"></td>
+                    <td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function addAccountRow() {
+            const tbody = document.getElementById('accounts-list-body');
+            const index = tbody.querySelectorAll('tr').length;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="text" class="form-control acc-id" value="" placeholder="例如: Bot-1"></td>
+                <td><input type="text" class="form-control acc-username" value="" placeholder="Email 或遊戲 ID"></td>
+                <td>
+                    <select class="form-control acc-auth">
+                        <option value="microsoft">Microsoft</option>
+                        <option value="offline">離線 (Offline)</option>
+                    </select>
+                </td>
+                <td><input type="number" class="form-control acc-webport" value="${3000 + index}" placeholder="埠號"></td>
+                <td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        async function saveAccounts() {
+            const accounts = [];
+            const ports = new Set();
+            const ids = new Set();
+            let duplicateError = false;
+
+            document.querySelectorAll('#accounts-list-body tr').forEach(tr => {
+                const id = tr.querySelector('.acc-id').value.trim();
+                const username = tr.querySelector('.acc-username').value.trim();
+                const auth = tr.querySelector('.acc-auth').value;
+                const webPort = parseInt(tr.querySelector('.acc-webport').value);
+                
+                if (id && username && !isNaN(webPort)) {
+                    if (ports.has(webPort) || ids.has(id)) duplicateError = true;
+                    ports.add(webPort);
+                    ids.add(id);
+                    accounts.push({ id, username, auth, webPort });
+                }
+            });
+
+            if (duplicateError) {
+                alert('錯誤：有重複的識別名稱 (ID) 或網頁埠號。');
+                return;
+            }
+
+            if (confirm('確定要儲存並重啟所有機器人嗎？')) {
+                try {
+                    const res = await fetch('/api/accounts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(accounts)
+                    });
+                    const result = await res.json();
+                    if (result.success) alert('設定已儲存，正在重啟... 請重新整理頁面。');
+                    else alert('失敗: ' + result.error);
+                } catch (err) { alert('錯誤: ' + err.message); }
+            }
+        }
+
+        // File Browser
+        function openFileBrowser() {
+            document.getElementById('file-modal').style.display = 'block';
+            let startPath = currentBrowserPath;
+            const currentVal = document.getElementById('bot-schematic-filename').value;
+            if (currentVal && currentVal.trim()) {
+                const lastSlash = Math.max(currentVal.lastIndexOf('/'), currentVal.lastIndexOf('\\'));
+                if (lastSlash !== -1) startPath = currentVal.substring(0, lastSlash);
+            }
+            loadFiles(startPath || "");
+        }
+
+        function closeFileModal() { document.getElementById('file-modal').style.display = 'none'; }
+
+        async function loadFiles(path = "") {
+            try {
+                const res = await fetch(`/api/utils/list-files?path=${encodeURIComponent(path)}`);
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                currentBrowserPath = data.currentDir;
+                localStorage.setItem('last_mapart_dir', currentBrowserPath);
+                document.getElementById('browser-path-input').value = currentBrowserPath;
+                renderFileList(data);
+            } catch (err) { alert('載入失敗: ' + err.message); }
+        }
+
+        function renderFileList(data) {
+            const container = document.getElementById('file-list');
+            container.innerHTML = '';
+            if (data.currentDir !== data.parentDir) {
+                const item = document.createElement('div');
+                item.className = 'file-item directory';
+                item.innerHTML = '📁 .. [上一層]';
+                item.onclick = () => loadFiles(data.parentDir);
+                container.appendChild(item);
+            }
+            data.items.forEach(file => {
+                const item = document.createElement('div');
+                item.className = `file-item ${file.isDirectory ? 'directory' : 'file'}`;
+                item.innerHTML = `${file.isDirectory ? '📁' : '📄'} ${file.name}`;
+                item.onclick = () => file.isDirectory ? loadFiles(file.fullPath) : selectFile(file.fullPath);
+                container.appendChild(item);
+            });
+        }
+
+        function selectFile(fullPath) {
+            document.getElementById('bot-schematic-filename').value = fullPath;
+            closeFileModal();
+        }
+
+        // Config Loading/Saving
         async function loadConfigs() {
             try {
                 const resB = await fetch('/api/config/bot');
                 currentBotConfig = await resB.json();
-                
                 if (currentBotConfig && currentBotConfig.schematic) {
                     document.getElementById('bot-schematic-filename').value = currentBotConfig.schematic.filename || "";
                     document.getElementById('bot-pos-x').value = currentBotConfig.schematic.placementPoint_x || 0;
                     document.getElementById('bot-pos-y').value = currentBotConfig.schematic.placementPoint_y || 0;
                     document.getElementById('bot-pos-z').value = currentBotConfig.schematic.placementPoint_z || 0;
                 }
-
                 if (currentBotConfig && currentBotConfig.workRegion) {
                     document.getElementById('reg-min-x').value = currentBotConfig.workRegion.minX ?? 0;
                     document.getElementById('reg-min-z').value = currentBotConfig.workRegion.minZ ?? 0;
                     document.getElementById('reg-max-x').value = currentBotConfig.workRegion.maxX ?? 128;
                     document.getElementById('reg-max-z').value = currentBotConfig.workRegion.maxZ ?? 128;
                 }
-
                 renderReplaceTable(currentBotConfig.replaceMaterials || []);
-
                 const resS = await fetch('/api/config/station');
                 currentStationConfig = await resS.json();
-                renderStationForm(currentStationConfig);
-            } catch (err) { alert('載入失敗: ' + err.message); }
-        }
-
-        function renderStationForm(cfg) {
-            document.getElementById('st-warp').value = cfg.stationWarp;
-
-            renderMaterialsTable(cfg.materials);
+                document.getElementById('st-warp').value = currentStationConfig.stationWarp;
+                renderMaterialsTable(currentStationConfig.materials);
+            } catch (err) { console.error(err); }
         }
 
         function renderMaterialsTable(materials) {
@@ -455,8 +459,8 @@
                     <td><input type="number" class="coord-input mat-x" value="${m[1][0]}"></td>
                     <td><input type="number" class="coord-input mat-y" value="${m[1][1]}"></td>
                     <td><input type="number" class="coord-input mat-z" value="${m[1][2]}"></td>
-                    <td><input type="text" class="coord-input mat-f" style="width:40px" value="${m[1][3]}"></td>
-                    <td><input type="text" class="coord-input mat-bf" style="width:40px" value="${m[1][4]}"></td>
+                    <td><input type="text" class="coord-input mat-f" value="${m[1][3]}"></td>
+                    <td><input type="text" class="coord-input mat-bf" value="${m[1][4]}"></td>
                     <td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>
                 `;
                 tbody.appendChild(tr);
@@ -466,26 +470,14 @@
         function addMaterialRow() {
             const tbody = document.getElementById('st-materials-body');
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><input type="text" class="form-control mat-name" value="new_item"></td>
-                <td><input type="number" class="coord-input mat-x" value="0"></td>
-                <td><input type="number" class="coord-input mat-y" value="0"></td>
-                <td><input type="number" class="coord-input mat-z" value="0"></td>
-                <td><input type="text" class="coord-input mat-f" style="width:40px" value="N"></td>
-                <td><input type="text" class="coord-input mat-bf" style="width:40px" value="bN"></td>
-                <td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>
-            `;
+            tr.innerHTML = `<td><input type="text" class="form-control mat-name" value="new"></td><td><input type="number" class="coord-input mat-x" value="0"></td><td><input type="number" class="coord-input mat-y" value="0"></td><td><input type="number" class="coord-input mat-z" value="0"></td><td><input type="text" class="coord-input mat-f" value="N"></td><td><input type="text" class="coord-input mat-bf" value="bN"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`;
             tbody.appendChild(tr);
         }
 
         function addReplaceRow(from = "", to = "") {
             const tbody = document.getElementById('replace-materials-body');
             const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td><input type="text" class="form-control rep-from" value="${from}" placeholder="例如: dirt"></td>
-                <td><input type="text" class="form-control rep-to" value="${to}" placeholder="例如: grass_block"></td>
-                <td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>
-            `;
+            tr.innerHTML = `<td><input type="text" class="form-control rep-from" value="${from}"></td><td><input type="text" class="form-control rep-to" value="${to}"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`;
             tbody.appendChild(tr);
         }
 
@@ -501,14 +493,12 @@
             newCfg.schematic.placementPoint_x = parseInt(document.getElementById('bot-pos-x').value);
             newCfg.schematic.placementPoint_y = parseInt(document.getElementById('bot-pos-y').value);
             newCfg.schematic.placementPoint_z = parseInt(document.getElementById('bot-pos-z').value);
-            
             newCfg.workRegion = {
                 minX: parseInt(document.getElementById('reg-min-x').value),
                 minZ: parseInt(document.getElementById('reg-min-z').value),
                 maxX: parseInt(document.getElementById('reg-max-x').value),
                 maxZ: parseInt(document.getElementById('reg-max-z').value)
             };
-
             const replaceList = [];
             document.querySelectorAll('#replace-materials-body tr').forEach(tr => {
                 const from = tr.querySelector('.rep-from').value.trim();
@@ -516,31 +506,12 @@
                 if (from && to) replaceList.push([from, to]);
             });
             newCfg.replaceMaterials = replaceList;
-
-            newCfg.station = "station_01.json";
             await apiSave('bot', newCfg);
         }
 
         async function saveStationConfig() {
             const newCfg = { ...currentStationConfig };
-            // stationName 保持原樣 (UI 已移除)
             newCfg.stationWarp = document.getElementById('st-warp').value;
-            
-            // 伺服器編號預設為 1 (UI 已移除)
-            newCfg.stationServer = 1;
-            
-            // 強制寫入預設 offset 數值
-            newCfg.offset = {
-                "N": [0, 1, -3],
-                "S": [0, 1, 3],
-                "W": [-3, 1, 0],
-                "E": [3, 1, 0],
-                "bN": [0, 1, -2],
-                "bS": [0, 1, 2],
-                "bW": [-2, 1, 0],
-                "bE": [2, 1, 0]
-            };
-            
             const materials = [];
             document.querySelectorAll('#st-materials-body tr').forEach(tr => {
                 const name = tr.querySelector('.mat-name').value;

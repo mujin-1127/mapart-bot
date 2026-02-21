@@ -8,7 +8,7 @@ module.exports = {
     longRunning: false,
     permissionRequre: 0,
     async execute(task) {
-        litematicPrinter.resume();
+        litematicPrinter.resume(task.bot);
         logger.info("已繼續建造");
     }
 }

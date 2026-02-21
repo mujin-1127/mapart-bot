@@ -2,7 +2,6 @@
   "ip": "rucat.kynetux.net",
   "port": 25565,
   "version": "1.21.11",
-  "username": "mbot_mapart",
   "auth": "microsoft",
   "language": "zh-tw",
   "whitelist": [
@@ -11,5 +10,18 @@
   ],
   "lobbyCommand": "/server lobby",
   "reconnectDelay": 10000,
-  "webPort": 3000
+  "bots": [
+    {
+      "id": "BOT-1",
+      "username": "mujin260222",
+      "auth": "microsoft",
+      "webPort": 3000
+    },
+    {
+      "id": "BOT-2",
+      "username": "mujin1127",
+      "auth": "microsoft",
+      "webPort": 3001
+    }
+  ]
 }
