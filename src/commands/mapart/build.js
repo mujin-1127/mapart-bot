@@ -15,8 +15,15 @@ module.exports = {
         const bot_id = bot.bot_id || bot.username;
         const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`;
         
-        let mapart_build_cfg_cache = await readConfig(configPath);
-        const mapart_global_cfg = await readConfig(`${process.cwd()}/config/global/mapart.json`);
+        let mapart_build_cfg_cache;
+        let mapart_global_cfg;
+        try {
+            mapart_build_cfg_cache = await readConfig(configPath);
+            mapart_global_cfg = await readConfig(`${process.cwd()}/config/global/mapart.json`);
+        } catch (e) {
+            logger.error(`讀取設定檔失敗: ${e.message}`);
+            return;
+        }
         
         mapart_build_cfg_cache.bot_id = bot_id;
         
@@ -54,9 +61,20 @@ module.exports = {
             }
         }
 
-        await litematicPrinter.build_file(task, bot, litematicPrinter.model_mapart, mapart_build_cfg_cache);
+        try {
+            await litematicPrinter.build_file(task, bot, litematicPrinter.model_mapart, mapart_build_cfg_cache);
+        } catch (e) {
+            logger.error(`建造過程發生錯誤: ${e.message}`);
+            return;
+        }
         
-        let build_result_query = await litematicPrinter.progress_query(task, bot);
+        let build_result_query;
+        try {
+            build_result_query = await litematicPrinter.progress_query(task, bot);
+        } catch (e) {
+            logger.error(`查詢進度失敗: ${e.message}`);
+            return;
+        }
         const mapartBuildUseTime = (build_result_query.endTime - build_result_query.startTime) / 1000;
         logger.info(`消耗時間 ${parseInt((mapartBuildUseTime / 3600))} h ${parseInt((mapartBuildUseTime % 3600) / 60)} m ${parseInt(mapartBuildUseTime % 60)} s`);
 
@@ -113,19 +131,24 @@ module.exports = {
                 logger.info(`[AutoNext] 發現下一個區塊: ${nextFilename}`);
                 
                 // 更新設定檔
-                const fullCfg = await readConfig(configPath);
-                fullCfg.schematic.filename = nextFilename;
-                await saveConfig(configPath, fullCfg);
+                try {
+                    const fullCfg = await readConfig(configPath);
+                    fullCfg.schematic.filename = nextFilename;
+                    await saveConfig(configPath, fullCfg);
+                } catch (e) {
+                    logger.error(`[AutoNext] 更新設定檔失敗: ${e.message}`);
+                    return;
+                }
                 
                 // 延遲啟動下一個任務
                 setTimeout(async () => {
-                    logger.info(`[AutoNext] 正在啟動自動建造任務...`);
-                    const context = { source: task.source, minecraftUser: task.minecraftUser || '' };
                     try {
+                        logger.info(`[AutoNext] 正在啟動自動建造任務...`);
+                        const context = { source: task.source, minecraftUser: task.minecraftUser || '' };
                         const cmdMgr = require('../CommandManager');
                         await cmdMgr.dispatch(bot, ["build", "-a", FLAG_autonext_value, FLAG_disableWebHookNotification ? "-n" : ""].filter(Boolean), context);
                     } catch (e) {
-                        logger.error(`[AutoNext] 自動建造啟動失敗: ${e.message}`);
+                        logger.error(`[AutoNext] 自動建造啟動或執行失敗: ${e.message}`);
                     }
                 }, 10000);
             } else {

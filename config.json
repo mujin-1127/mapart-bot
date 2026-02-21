@@ -8,5 +8,8 @@
   "whitelist": [
     "ID1",
     "ID2"
-  ]
+  ],
+  "lobbyCommand": "/server lobby",
+  "reconnectDelay": 10000,
+  "webPort": 3000
 }

@@ -113,40 +113,43 @@ class ResourcePackHandler {
 
       const uuid = packet.uuid || packet.UUID
 
-      // 步驟 1: 發送 accepted (已接受)
-      this.bot._client.write('resource_pack_receive', {
-        uuid: uuid,
-        result: 3 // 3 = accepted
-      })
-      console.log('[ResourcePack] ✓ 已接受資源包')
+    // 步驟 1: 發送 accepted (已接受)
+    if (!this.bot._client || this.bot._client.state === 'closed') return;
+    this.bot._client.write('resource_pack_receive', {
+      uuid: uuid,
+      result: 3 // 3 = accepted
+    })
+    console.log('[ResourcePack] ✓ 已接受資源包')
 
-      // 步驟 2: 發送 downloaded (已下載)
-      setTimeout(() => {
-        try {
-          this.bot._client.write('resource_pack_receive', {
-            uuid: uuid,
-            result: 4 // 4 = downloaded
-          })
-          console.log('[ResourcePack] ✓ 資源包下載完成')
+    // 步驟 2: 發送 downloaded (已下載)
+    setTimeout(() => {
+      try {
+        if (!this.bot._client || this.bot._client.state === 'closed') return;
+        this.bot._client.write('resource_pack_receive', {
+          uuid: uuid,
+          result: 4 // 4 = downloaded
+        })
+        console.log('[ResourcePack] ✓ 資源包下載完成')
 
-          // 步驟 3: 發送 successfully_loaded (成功載入)
-          setTimeout(() => {
-            try {
-              this.bot._client.write('resource_pack_receive', {
-                uuid: uuid,
-                result: 0 // 0 = successfully_loaded
-              })
-              console.log('[ResourcePack] ✅ 資源包載入完成')
-              this.bot.resourcePackLoaded = true
-              this.bot.emit('resourcePackLoaded')
-            } catch (error) {
-              console.error('[ResourcePack] 發送載入完成狀態失敗:', error.message)
-            }
-          }, 50) // 50ms 延遲
-        } catch (error) {
-          console.error('[ResourcePack] 發送下載完成狀態失敗:', error.message)
-        }
-      }, 50) // 50ms 延遲
+        // 步驟 3: 發送 successfully_loaded (成功載入)
+        setTimeout(() => {
+          try {
+            if (!this.bot._client || this.bot._client.state === 'closed') return;
+            this.bot._client.write('resource_pack_receive', {
+              uuid: uuid,
+              result: 0 // 0 = successfully_loaded
+            })
+            console.log('[ResourcePack] ✅ 資源包載入完成')
+            this.bot.resourcePackLoaded = true
+            this.bot.emit('resourcePackLoaded')
+          } catch (error) {
+            console.error('[ResourcePack] 發送載入完成狀態失敗:', error.message)
+          }
+        }, 50)
+      } catch (error) {
+        console.error('[ResourcePack] 發送下載完成狀態失敗:', error.message)
+      }
+    }, 50)
 
     } catch (error) {
       console.error('[ResourcePack] 接受資源包時發生錯誤:', error.message)

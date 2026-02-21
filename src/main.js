@@ -5,7 +5,7 @@ const mineflayer = require('mineflayer')
 const ResourcePackHandler = require('./utils/ResourcePackHandler')
 const mapart = require('./mapart')
 const logger = require('../lib/logger').module('Main')
-const { readConfig } = require('../lib/utils')
+const { sleep } = require('../lib/utils')
 const WebServer = require('../lib/webServer')
 
 const commandManager = require('./commands/CommandManager')
@@ -94,7 +94,10 @@ const runtimeDataDir = path.dirname(configPath)
 
 // --- Global Error Handling & Variables ---
 process.on('uncaughtException', (err) => {
-  console.log('UncoughtError: ' + (err && err.stack ? err.stack : err))
+  console.log('UncaughtError: ' + (err && err.stack ? err.stack : err))
+})
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('UnhandledRejection:', reason)
 })
 let deathCount = 0
 let dailyRewardTimer = null
@@ -175,12 +178,19 @@ async function dispatchMapartCommand(bot, content, source, minecraftUser) {
   }
 }
 
+// --- Global Variables ---
+let currentBot = null
+let currentWebServer = null
+let rl = null
+let mapartReady = false
+
 // --- Main Bot Logic ---
 // 啟動 bot 並掛載事件與重連邏輯
 async function startBot() {
   const opts = buildBotOptions()
   const bot = mineflayer.createBot(opts)
-  let mapartReady = false
+  currentBot = bot
+  mapartReady = false
   bot.resourcePackLoaded = false
 
   // 初始化並立即啟用資源包處理器（1.20.2+ configuration 階段需要）
@@ -192,7 +202,12 @@ async function startBot() {
   console.log('[ResourcePack] 資源包自動接受已啟用')
 
   // ----- Web GUI Server -----
+  // 斷線重連前先關閉舊的 WebServer
+  if (currentWebServer) {
+    currentWebServer.stop()
+  }
   const webServer = new WebServer(bot, config.webPort || 3000)
+  currentWebServer = webServer
   
   // 註冊 Web 指令處理器
   webServer.onCommandHandler = async (cmd) => {
@@ -223,88 +238,64 @@ async function startBot() {
   webServer.start()
 
   // ----- Chat bridge (stdin -> game) -----
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false })
-  rl.on('line', (line) => {
-    const trimmed = (line || '').trim()
-    if (!trimmed.length) return
-    // 要發送到遊戲聊天窗的內容，開頭須加 "."
-    if (trimmed.startsWith('.')) {
-      const msg = trimmed.slice(1).trim()
-      if (msg.length) {
-        try { bot.chat(msg) } catch (e) { console.error('[RL_CHAT_ERROR]', e) }
-      }
-      return
-    }
-    const parts = trimmed.split(/\s+/)
-    if (mapart.identifier.includes(parts[0]?.toLowerCase())) {
-      if (!mapartReady) {
-        console.log('[Mapart] 尚未就緒，請等待 bot 進入遊戲後再試。')
+  // 僅在第一次啟動時初始化 readline 介面
+  if (!rl) {
+    rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false })
+    rl.on('line', (line) => {
+      // 在監聽器內部抓取當前的 currentBot
+      const bot = currentBot
+      if (!bot) return
+
+      const trimmed = (line || '').trim()
+      if (!trimmed.length) return
+      // 要發送到遊戲聊天窗的內容，開頭須加 "."
+      if (trimmed.startsWith('.')) {
+        const msg = trimmed.slice(1).trim()
+        if (msg.length) {
+          try { bot.chat(msg) } catch (e) { console.error('[RL_CHAT_ERROR]', e) }
+        }
         return
       }
-      dispatchMapartCommand(bot, parts, 'console', '').then(handled => {
-        if (!handled) {
-          console.log('[Mapart] 請輸入子指令，例如: mp info、mp set 檔名 x y z、mp build')
+      const parts = trimmed.split(/\s+/)
+      if (mapart.identifier.includes(parts[0]?.toLowerCase())) {
+        if (!mapartReady) {
+          console.log('[Mapart] 尚未就緒，請等待 bot 進入遊戲後再試。')
+          return
         }
-      })
-      return
-    }
-    // 未加 "." 的內容不會送進遊戲，僅提示
-    console.log('[提示] 要發送到遊戲聊天室請在開頭加 .  例如: .你好')
-  })
+        dispatchMapartCommand(bot, parts, 'console', '').then(handled => {
+          if (!handled) {
+            console.log('[Mapart] 請輸入子指令，例如: mp info、mp set 檔名 x y z、mp build')
+          }
+        })
+        return
+      }
+      // 未加 "." 的內容不會送進遊戲，僅提示
+      console.log('[提示] 要發送到遊戲聊天室請在開頭加 .  例如: .你好')
+    })
+  }
 
   // ----- On spawn -----
   let lobbySent = false
-  const sendLobbyCommand = () => {
+  const sendLobbyCommand = async () => {
     if (lobbySent) return
     lobbySent = true
     
-    logger.info('[AutoCommand] 偵測到機器人進入世界，準備發送指令...')
+    // 延遲 3 秒發送，確保伺服器已準備好處理玩家指令
+    logger.info('[AutoCommand] 3秒後準備發送切換分流指令...')
+    await sleep(3000)
     
-    // 進入伺服器後自動執行指令
-    setTimeout(() => {
-      try {
-        bot.chat('/server lobby')
-        logger.info('[AutoCommand] 已自動發送指令: /server lobby')
-      } catch (e) {
-        logger.error(`[AutoCommand] 自動發送指令發生異常: ${e.message}`)
-        lobbySent = false
-      }
-    }, 2000) // 2 秒延遲
+    try {
+      const lobbyCmd = config.lobbyCommand || '/server lobby'
+      bot.chat(lobbyCmd)
+      logger.info(`[AutoCommand] 已發送切換分流指令: ${lobbyCmd}`)
+    } catch (e) {
+      logger.error(`[AutoCommand] 發送切換分流指令發生異常: ${e.message}`)
+      lobbySent = false
+    }
   }
 
-  bot.once('spawn', async () => {
-    logger.info('[Main] 機器人核心啟動程序完成 (v2)')
-    logger.info(`whitelist: ${getCleanWhitelist().join(', ')}`)
-    
-    // 檢查資源包是否已經載入完成，或註冊載入完成事件
-    if (bot.resourcePackLoaded) {
-      logger.info('[AutoCommand] 資源包已在進入世界前載入完成，準備發送指令...')
-      sendLobbyCommand()
-    } else {
-      logger.info('[AutoCommand] 等待資源包載入中...')
-      bot.once('resourcePackLoaded', () => {
-        logger.info('[AutoCommand] 偵測到資源包載入完成，準備發送指令...')
-        sendLobbyCommand()
-      })
-
-      // 防呆：如果 15 秒後還沒載入資源包（或伺服器根本沒發送），則直接執行
-      setTimeout(() => {
-        if (!lobbySent) {
-          logger.info('[AutoCommand] 逾時未偵測到資源包，執行防呆發送...')
-          sendLobbyCommand()
-        }
-      }, 2000)
-    }
-    
-    // 初始化空間索引
-    entityIndexer = new EntityIndexer(bot);
-    bot.entityIndexer = entityIndexer; // 導出給其他模組使用
-    
-    bot.botinfo = { server: 0 }
-    bot.loadPlugin(require('mineflayer-collectblock').plugin)
-    bot.chatAddPattern(/^\[傳送\]\s*(.+?)\s*請求傳送到你這裡（請注意安全）。?$/, 'tpa_to_me', 'TPA請求')
-    bot.chatAddPattern(/^\[傳送\]\s*(.+?)\s*請求你傳送到他那裡（請注意安全）。?$/, 'tpa_from_me', 'TPA請求')
-    // 地圖畫外掛：確保設定目錄並初始化
+  // ----- Mapart Initialization -----
+  const initMapart = async () => {
     ensureMapartConfigDirs(config.username)
     try {
       await mapart.init(bot, config.username, mapartLogger)
@@ -313,33 +304,25 @@ async function startBot() {
     } catch (e) {
       console.error('[Mapart] 初始化失敗:', e.message)
     }
+  }
+
+  bot.once('spawn', async () => {
+    logger.info('[Main] 機器人核心啟動程序完成')
+
+    await sendLobbyCommand()
+    
+    // 初始化空間索引
+    entityIndexer = new EntityIndexer(bot);
+    bot.entityIndexer = entityIndexer; // 導出給其他模組使用
+    
+    bot.botinfo = { server: 0 }
+    bot.loadPlugin(require('mineflayer-collectblock').plugin)
+
+    // 地圖畫外掛：確保設定目錄並初始化
+    await initMapart()
   })
 
-  // ----- TPA handling -----
-  bot.on('tpa_to_me', (player) => {
-    const cleanedPlayer = cleanPlayerName(player)
-    if (getCleanWhitelist().includes(cleanedPlayer)) {
-      bot.chat(`/tpyes ${cleanedPlayer}`)
-      console.log(`已接受來自 ${cleanedPlayer} 的TPA請求`)
-    } else {
-      bot.chat(`/tpno ${cleanedPlayer}`)
-      console.log(`已拒絕來自 ${cleanedPlayer} 的TPA請求 (不在白名單)`)
-    }
-  })
-
-  bot.on('tpa_from_me', (player) => {
-    const cleanedPlayer = cleanPlayerName(player)
-    if (getCleanWhitelist().includes(cleanedPlayer)) {
-      bot.chat(`/tpyes ${cleanedPlayer}`)
-      console.log(`已接受來自 ${cleanedPlayer} 的TPA請求`)
-    } else {
-      bot.chat(`/tpno ${cleanedPlayer}`)
-      console.log(`已拒絕來自 ${cleanedPlayer} 的TPA請求 (不在白名單)`)
-    }
-  })
-
-  // ----- Message handling (commands) -----
-  bot.on('message', (jsonMsg) => {
+  const onMessage = (jsonMsg) => {
     const text = jsonMsg.toString().trim()
     if (!text) return
 
@@ -364,32 +347,53 @@ async function startBot() {
         if (command === 'dropall') dropAll(bot)
       }
     }
-  })
+  }
 
-  // ----- Death handling -----
-  bot.on('death', async () => {
+  const onDeath = async () => {
     await bot.waitForTicks(10)
     deathCount++
     console.log(`已死亡: ${deathCount} 次，且已自動/back返回`)
     try { bot.chat('/back') } catch (e) { console.error('Failed to send /back command after death:', e) }
-  })
+  }
 
-  // ----- Kick/disconnect debug -----
-  bot.on('kicked', (reason) => {
+  const onKicked = (reason) => {
     console.log('被伺服器踢出:', reason)
-  })
+  }
 
-  bot.on('error', (err) => {
+  const onError = (err) => {
     console.log('發生錯誤:', err)
-  })
+  }
 
-  // ----- Auto-reconnect -----
-  bot.on('end', (reason) => {
+  const onEnd = (reason) => {
     console.log(`連線已中斷: ${reason}, 10秒後將重新連線...`)
-    rl.close()
     clearTimeout(dailyRewardTimer)
-    setTimeout(startBot, 10000)
-  })
+
+    // 清理資源與事件監聽器，避免記憶體洩漏
+    bot.removeListener('message', onMessage)
+    bot.removeListener('death', onDeath)
+    bot.removeListener('kicked', onKicked)
+    bot.removeListener('error', onError)
+    bot.removeListener('end', onEnd)
+
+    // 取消 Mapart 的 onBlockUpdate 等全域監聽 (如有)
+    bot.removeAllListeners('blockUpdate')
+
+    // 關閉網頁伺服器，釋放埠號
+    if (currentWebServer) {
+      currentWebServer.stop()
+      currentWebServer = null
+    }
+
+    const delay = config.reconnectDelay || 10000
+    setTimeout(startBot, delay)
+  }
+
+  // 掛載事件監聽器
+  bot.on('message', onMessage)
+  bot.on('death', onDeath)
+  bot.on('kicked', onKicked)
+  bot.on('error', onError)
+  bot.on('end', onEnd)
 }
 
 // --- Actions ---
