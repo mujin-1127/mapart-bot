@@ -253,9 +253,29 @@ async function startBot() {
   })
 
   // ----- On spawn -----
+  let lobbySent = false
+  const sendLobbyCommand = () => {
+    if (lobbySent) return
+    lobbySent = true
+    
+    logger.info('[AutoCommand] 偵測到機器人進入世界，準備發送指令...')
+    
+    // 進入伺服器後自動執行指令
+    setTimeout(() => {
+      try {
+        bot.chat('/server lobby')
+        logger.info('[AutoCommand] 已自動發送指令: /server lobby')
+      } catch (e) {
+        logger.error(`[AutoCommand] 自動發送指令發生異常: ${e.message}`)
+        lobbySent = false
+      }
+    }, 2000) // 2 秒延遲
+  }
+
   bot.once('spawn', async () => {
-    logger.info('bot已成功啟動!')
+    logger.info('[Main] 機器人核心啟動程序完成 (v2)')
     logger.info(`whitelist: ${getCleanWhitelist().join(', ')}`)
+    sendLobbyCommand()
     
     // 初始化空間索引
     entityIndexer = new EntityIndexer(bot);
