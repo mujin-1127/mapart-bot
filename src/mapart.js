@@ -18,8 +18,8 @@ let mapart_cfg = {
     "workRegion": {
         "minX": 0,
         "minZ": 0,
-        "maxX": 127,
-        "maxZ": 127
+        "maxX": 128,
+        "maxZ": 128
     },
     "materialsMode": "station",
     "station": "mpStation_Example.json",

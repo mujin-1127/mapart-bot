@@ -131,21 +131,21 @@
                 <div class="form-group">
                     <label>區域選擇</label>
                     <select id="region-preset" class="form-control" onchange="applyRegionPreset(this.value)">
-                        <option value="full">完整區域 (0-127)</option>
+                        <option value="full">完整區域 (0-128)</option>
                         <option value="q1">左上象限 (Q1: 0-63, 0-63)</option>
-                        <option value="q2">右上象限 (Q2: 64-127, 0-63)</option>
-                        <option value="q3">左下象限 (Q3: 0-63, 64-127)</option>
-                        <option value="q4">右下象限 (Q4: 64-127, 64-127)</option>
-                        <option value="left">左半部 (0-63, 0-127)</option>
-                        <option value="right">右半部 (64-127, 0-127)</option>
+                        <option value="q2">右上象限 (Q2: 64-128, 0-63)</option>
+                        <option value="q3">左下象限 (Q3: 0-63, 64-128)</option>
+                        <option value="q4">右下象限 (Q4: 64-128, 64-128)</option>
+                        <option value="left">左半部 (0-63, 0-128)</option>
+                        <option value="right">右半部 (64-128, 0-128)</option>
                         <option value="custom">自訂區域</option>
                     </select>
                 </div>
                 <div class="form-grid">
                     <div class="form-group"><label>最小 X</label><input type="number" id="reg-min-x" class="form-control" value="0"></div>
                     <div class="form-group"><label>最小 Z</label><input type="number" id="reg-min-z" class="form-control" value="0"></div>
-                    <div class="form-group"><label>最大 X</label><input type="number" id="reg-max-x" class="form-control" value="127"></div>
-                    <div class="form-group"><label>最大 Z</label><input type="number" id="reg-max-z" class="form-control" value="127"></div>
+                    <div class="form-group"><label>最大 X</label><input type="number" id="reg-max-x" class="form-control" value="128"></div>
+                    <div class="form-group"><label>最大 Z</label><input type="number" id="reg-max-z" class="form-control" value="128"></div>
                 </div>
             </div>
             <button class="save-btn" onclick="saveBotConfig()">儲存機器人設定</button>
@@ -302,13 +302,13 @@
             const maxZ = document.getElementById('reg-max-z');
 
             switch(preset) {
-                case 'full':  setReg(0, 0, 127, 127); break;
+                case 'full':  setReg(0, 0, 128, 128); break;
                 case 'q1':    setReg(0, 0, 63, 63); break;
-                case 'q2':    setReg(64, 0, 127, 63); break;
-                case 'q3':    setReg(0, 64, 63, 127); break;
-                case 'q4':    setReg(64, 64, 127, 127); break;
-                case 'left':  setReg(0, 0, 63, 127); break;
-                case 'right': setReg(64, 0, 127, 127); break;
+                case 'q2':    setReg(64, 0, 128, 63); break;
+                case 'q3':    setReg(0, 64, 63, 128); break;
+                case 'q4':    setReg(64, 64, 128, 128); break;
+                case 'left':  setReg(0, 0, 63, 128); break;
+                case 'right': setReg(64, 0, 128, 128); break;
             }
 
             function setReg(x1, z1, x2, z2) {
@@ -412,8 +412,8 @@
                 if (currentBotConfig && currentBotConfig.workRegion) {
                     document.getElementById('reg-min-x').value = currentBotConfig.workRegion.minX ?? 0;
                     document.getElementById('reg-min-z').value = currentBotConfig.workRegion.minZ ?? 0;
-                    document.getElementById('reg-max-x').value = currentBotConfig.workRegion.maxX ?? 127;
-                    document.getElementById('reg-max-z').value = currentBotConfig.workRegion.maxZ ?? 127;
+                    document.getElementById('reg-max-x').value = currentBotConfig.workRegion.maxX ?? 128;
+                    document.getElementById('reg-max-z').value = currentBotConfig.workRegion.maxZ ?? 128;
                 }
 
                 const resS = await fetch('/api/config/station');
