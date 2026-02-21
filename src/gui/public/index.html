@@ -147,6 +147,21 @@
                     <div class="form-group"><label>最大 X</label><input type="number" id="reg-max-x" class="form-control" value="128"></div>
                     <div class="form-group"><label>最大 Z</label><input type="number" id="reg-max-z" class="form-control" value="128"></div>
                 </div>
+
+                <h3>方塊替換設定 (Material Replace)</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>原始方塊</th>
+                                <th>替換為</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="replace-materials-body"></tbody>
+                    </table>
+                </div>
+                <button class="btn-add" onclick="addReplaceRow()">+ 新增替換項目</button>
             </div>
             <button class="save-btn" onclick="saveBotConfig()">儲存機器人設定</button>
         </div>
@@ -416,6 +431,8 @@
                     document.getElementById('reg-max-z').value = currentBotConfig.workRegion.maxZ ?? 128;
                 }
 
+                renderReplaceTable(currentBotConfig.replaceMaterials || []);
+
                 const resS = await fetch('/api/config/station');
                 currentStationConfig = await resS.json();
                 renderStationForm(currentStationConfig);
@@ -461,6 +478,23 @@
             tbody.appendChild(tr);
         }
 
+        function addReplaceRow(from = "", to = "") {
+            const tbody = document.getElementById('replace-materials-body');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="text" class="form-control rep-from" value="${from}" placeholder="例如: dirt"></td>
+                <td><input type="text" class="form-control rep-to" value="${to}" placeholder="例如: grass_block"></td>
+                <td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        function renderReplaceTable(list) {
+            const tbody = document.getElementById('replace-materials-body');
+            tbody.innerHTML = '';
+            list.forEach(item => addReplaceRow(item[0], item[1]));
+        }
+
         async function saveBotConfig() {
             const newCfg = { ...currentBotConfig };
             newCfg.schematic.filename = document.getElementById('bot-schematic-filename').value;
@@ -474,6 +508,14 @@
                 maxX: parseInt(document.getElementById('reg-max-x').value),
                 maxZ: parseInt(document.getElementById('reg-max-z').value)
             };
+
+            const replaceList = [];
+            document.querySelectorAll('#replace-materials-body tr').forEach(tr => {
+                const from = tr.querySelector('.rep-from').value.trim();
+                const to = tr.querySelector('.rep-to').value.trim();
+                if (from && to) replaceList.push([from, to]);
+            });
+            newCfg.replaceMaterials = replaceList;
 
             newCfg.station = "station_01.json";
             await apiSave('bot', newCfg);

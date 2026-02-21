@@ -19,7 +19,12 @@ module.exports = {
         const mapart_global_cfg = await readConfig(`${process.cwd()}/config/global/mapart.json`);
         
         mapart_build_cfg_cache.bot_id = bot_id;
-        mapart_build_cfg_cache.replaceMaterials = mapart_global_cfg.replaceMaterials;
+        
+        // 合併全域與機器人特定替換表
+        const botReplace = mapart_build_cfg_cache.replaceMaterials || [];
+        const globalReplace = mapart_global_cfg.replaceMaterials || [];
+        mapart_build_cfg_cache.replaceMaterials = [...globalReplace, ...botReplace];
+
         delete mapart_build_cfg_cache.open;
         delete mapart_build_cfg_cache.wrap;
 

@@ -21,6 +21,7 @@ let mapart_cfg = {
         "maxX": 128,
         "maxZ": 128
     },
+    "replaceMaterials": [],
     "materialsMode": "station",
     "station": "mpStation_Example.json",
     "open": {
