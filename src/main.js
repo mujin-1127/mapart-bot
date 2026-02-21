@@ -182,6 +182,7 @@ async function startBot() {
   const opts = buildBotOptions()
   const bot = mineflayer.createBot(opts)
   let mapartReady = false
+  bot.resourcePackLoaded = false
 
   // 初始化並立即啟用資源包處理器（1.20.2+ configuration 階段需要）
   const resourcePackHandler = new ResourcePackHandler(bot, {
@@ -275,7 +276,26 @@ async function startBot() {
   bot.once('spawn', async () => {
     logger.info('[Main] 機器人核心啟動程序完成 (v2)')
     logger.info(`whitelist: ${getCleanWhitelist().join(', ')}`)
-    sendLobbyCommand()
+    
+    // 檢查資源包是否已經載入完成，或註冊載入完成事件
+    if (bot.resourcePackLoaded) {
+      logger.info('[AutoCommand] 資源包已在進入世界前載入完成，準備發送指令...')
+      sendLobbyCommand()
+    } else {
+      logger.info('[AutoCommand] 等待資源包載入中...')
+      bot.once('resourcePackLoaded', () => {
+        logger.info('[AutoCommand] 偵測到資源包載入完成，準備發送指令...')
+        sendLobbyCommand()
+      })
+
+      // 防呆：如果 15 秒後還沒載入資源包（或伺服器根本沒發送），則直接執行
+      setTimeout(() => {
+        if (!lobbySent) {
+          logger.info('[AutoCommand] 逾時未偵測到資源包，執行防呆發送...')
+          sendLobbyCommand()
+        }
+      }, 2000)
+    }
     
     // 初始化空間索引
     entityIndexer = new EntityIndexer(bot);

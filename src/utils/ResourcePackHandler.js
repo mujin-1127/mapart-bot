@@ -137,6 +137,8 @@ class ResourcePackHandler {
                 result: 0 // 0 = successfully_loaded
               })
               console.log('[ResourcePack] ✅ 資源包載入完成')
+              this.bot.resourcePackLoaded = true
+              this.bot.emit('resourcePackLoaded')
             } catch (error) {
               console.error('[ResourcePack] 發送載入完成狀態失敗:', error.message)
             }
