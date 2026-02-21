@@ -17,10 +17,10 @@ module.exports = {
         let stationConfig = await readConfig(`${process.cwd()}/config/global/${mapart_build_cfg_cache.station}`);
         
         let needReStock = [
-            { name: task.content[2], count: parseInt(task.content[3]) },
+            { name: task.content[1], count: parseInt(task.content[2]) },
         ];
 
-        logger.info(`開始測試補給: ${task.content[2]} x ${task.content[3]}`);
+        logger.info(`開始測試補給: ${task.content[1]} x ${task.content[2]}`);
         await station.newrestock(bot, stationConfig, needReStock);
         logger.info("測試結束");
     }

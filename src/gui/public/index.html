@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mineflayer Bot Dashboard</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1a1a1a; color: #eee; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         .header { background-color: #2c3e50; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.5); position: relative; }
@@ -64,6 +64,9 @@
 <body>
     <div class="header">
         Mineflayer Bot 控制面板 - <span id="bot-name">連線中...</span>
+        <div style="font-size: 12px; font-weight: normal; color: #aaa;">
+            連線狀態: <span id="socket-status" style="color: #f1c40f;">正在連線...</span>
+        </div>
     </div>
 
     <div class="tabs">
@@ -163,7 +166,44 @@
     </div>
 
     <script>
-        const socket = io();
+        window.onerror = function(msg, url, line, col, error) {
+            const statusEl = document.getElementById('socket-status');
+            if (statusEl) {
+                statusEl.innerText = "JS 錯誤: " + msg + " (第 " + line + " 行)";
+                statusEl.style.color = "#e74c3c";
+            }
+            return false;
+        };
+
+        if (typeof io === 'undefined') {
+            document.getElementById('socket-status').innerText = "錯誤: 無法載入 Socket.io 函式庫";
+            document.getElementById('socket-status').style.color = "#e74c3c";
+        }
+
+        const socket = io({
+            transports: ['websocket', 'polling'], // 強制啟用 websocket 優選
+            reconnectionAttempts: 5,
+            timeout: 10000
+        });
+
+        socket.on('connect', () => {
+            console.log('Connected to server!');
+            document.getElementById('socket-status').innerText = "已連線至主控台";
+            document.getElementById('socket-status').style.color = "#2ecc71";
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.log('Disconnected from server:', reason);
+            document.getElementById('socket-status').innerText = "連線已斷開 (" + reason + ")";
+            document.getElementById('socket-status').style.color = "#e74c3c";
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Connection error:', error);
+            document.getElementById('socket-status').innerText = "連線失敗: " + error.message;
+            document.getElementById('socket-status').style.color = "#e74c3c";
+        });
+
         var currentMapartConfig = {};
         var currentStationConfig = {};
         var currentBotConfig = {};

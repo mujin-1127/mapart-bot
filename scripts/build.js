@@ -33,6 +33,10 @@ function extractRequiredVersions(content, version, type = 'pc') {
   const versionsToKeep = new Set();
   const versionsToProcess = [version];
   
+  // 強制加入一些常見版本，確保伺服器切換時不會因為缺少協定資料而斷線
+  const essentialVersions = ['1.8.9', '1.12.2', '1.16.5', '1.18.2', '1.19.4', '1.20', '1.20.1', '1.20.2', '1.20.4', '1.21'];
+  essentialVersions.forEach(v => versionsToProcess.push(v));
+  
   while (versionsToProcess.length > 0) {
     const currentVer = versionsToProcess.shift();
     if (versionsToKeep.has(currentVer)) continue;
