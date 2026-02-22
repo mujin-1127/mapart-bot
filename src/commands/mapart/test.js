@@ -11,10 +11,11 @@ module.exports = {
     async execute(task) {
         const bot = task.bot;
         const bot_id = bot.bot_id || bot.username;
-        const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`;
+        const configPath = `${process.cwd()}/config/global/mapart.json`;
         
         let mapart_build_cfg_cache = await readConfig(configPath);
-        let stationConfig = await readConfig(`${process.cwd()}/config/global/${mapart_build_cfg_cache.station}`);
+        const stationFile = mapart_build_cfg_cache?.station || 'station.json';
+        let stationConfig = await readConfig(`${process.cwd()}/config/global/${stationFile}`);
         
         let needReStock = [
             { name: task.content[1], count: parseInt(task.content[2]) },

@@ -15,12 +15,25 @@ module.exports = {
         const mcData = require('minecraft-data')(bot.version);
         const Item = require('prismarine-item')(bot.version);
         const bot_id = bot.bot_id || bot.username;
-        const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`;
+        const configPath = `${process.cwd()}/config/global/mapart.json`;
         
         let mapart_open_cfg_cache = await readConfig(configPath);
+        
+        // 動態計算 worker_id 與 worker_count
+        const botIds = mapart_open_cfg_cache.botIds || [];
+        const workerIndex = botIds.indexOf(bot_id);
+        
+        if (workerIndex === -1) {
+            logger.error(`目前機器人 (${bot_id}) 不在被指派的任務名單內！`);
+            return;
+        }
+        
+        mapart_open_cfg_cache.worker_id = workerIndex;
+        mapart_open_cfg_cache.worker_count = botIds.length;
         let stationConfig;
         if (mapart_open_cfg_cache["materialsMode"] == 'station') {
-            stationConfig = await readConfig(`${process.cwd()}/config/global/${mapart_open_cfg_cache.station}`);
+            const stationFile = mapart_open_cfg_cache?.station || 'station.json';
+            stationConfig = await readConfig(`${process.cwd()}/config/global/${stationFile}`);
         }
 
         await mcFallout.warp(bot, mapart_open_cfg_cache["open"]["warp"]);

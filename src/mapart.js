@@ -64,24 +64,16 @@ const mapart = {
             replaceMaterials: []
         };
 
-        // 載入設定
-        const botConfigPath = `${process.cwd()}/config/${bot_id}/mapart.json`;
+        const globalConfigPath = `${process.cwd()}/config/global/mapart.json`;
         let mapart_cfg;
-        if (!fs.existsSync(botConfigPath)) {
+        if (!fs.existsSync(globalConfigPath)) {
             mapart_cfg = default_mapart_cfg;
-            await saveConfig(botConfigPath, mapart_cfg);
+            await saveConfig(globalConfigPath, mapart_cfg);
         } else {
-            mapart_cfg = await readConfig(botConfigPath);
+            mapart_cfg = await readConfig(globalConfigPath);
         }
 
-        const globalConfigPath = `${process.cwd()}/config/global/mapart.json`;
-        let mapart_global_cfg;
-        if (!fs.existsSync(globalConfigPath)) {
-            mapart_global_cfg = mapart_global_cfg_default;
-            await saveConfig(globalConfigPath, mapart_global_cfg);
-        } else {
-            mapart_global_cfg = await readConfig(globalConfigPath);
-        }
+        let mapart_global_cfg = mapart_cfg; // 現在全域設定與任務設定合併
 
         // 將狀態儲存到 bot 實例中
         bot.mapartState = {

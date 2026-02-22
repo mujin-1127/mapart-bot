@@ -12,7 +12,7 @@ module.exports = {
     async execute(task) {
         const bot = task.bot;
         const bot_id = bot.bot_id || bot.username;
-        const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`;
+        const configPath = `${process.cwd()}/config/global/mapart.json`;
         
         let mapart_name_cfg_cache = await readConfig(configPath);
         

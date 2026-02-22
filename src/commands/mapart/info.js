@@ -11,10 +11,17 @@ module.exports = {
     async execute(task) {
         const bot = task.bot;
         const bot_id = bot.bot_id || bot.username;
-        const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`;
+        const configPath = `${process.cwd()}/config/global/mapart.json`;
         
         try {
             let mapart_info_cfg_cache = await readConfig(configPath);
+            
+            const botIds = mapart_info_cfg_cache.botIds || [];
+            if (!botIds.includes(bot_id)) {
+                logger.error(`目前機器人 (${bot_id}) 不在被指派的任務名單內！`);
+                return;
+            }
+            
             let lppq = await litematicPrinter.progress_query(task, bot);
             
             let prog = 0;

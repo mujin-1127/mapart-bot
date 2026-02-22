@@ -1,4 +1,28 @@
 {
-	"discord_webhookURL": "",
-	"replaceMaterials": []
+  "discord_webhookURL": "",
+  "replaceMaterials": [
+    [
+      "cobblestone",
+      "green_carpet"
+    ]
+  ],
+  "schematic": {
+    "filename": "C:\\Users\\macso\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.11 fabric\\minecraft\\schematics\\子J\\cf1120d2bc6d3061_3_0.nbt",
+    "placementPoint_x": 100032,
+    "placementPoint_y": 62,
+    "placementPoint_z": 100031
+  },
+  "workRegion": {
+    "minX": 0,
+    "minZ": 0,
+    "maxX": 128,
+    "maxZ": 128
+  },
+  "materialsMode": "station",
+  "station": "station.json",
+  "botIds": [
+    "mujin1127",
+    "mujin260222"
+  ],
+  "task_group_id": "1771796212926"
 }

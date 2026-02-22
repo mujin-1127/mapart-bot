@@ -13,24 +13,46 @@ module.exports = {
     async execute(task) {
         const bot = task.bot;
         const bot_id = bot.bot_id || bot.username;
-        const configPath = `${process.cwd()}/config/${bot_id}/mapart.json`;
+        const configPath = `${process.cwd()}/config/global/mapart.json`;
         
         let mapart_build_cfg_cache;
         let mapart_global_cfg;
         try {
+            // 現在統一讀取全域 mapart.json
             mapart_build_cfg_cache = await readConfig(configPath);
-            mapart_global_cfg = await readConfig(`${process.cwd()}/config/global/mapart.json`);
+            mapart_global_cfg = mapart_build_cfg_cache; 
         } catch (e) {
             logger.error(`讀取設定檔失敗: ${e.message}`);
             return;
         }
+
+        // 動態計算 worker_id 與 worker_count
+        const botIds = mapart_build_cfg_cache.botIds || [];
+        const workerIndex = botIds.indexOf(bot_id);
         
+        if (workerIndex === -1) {
+            logger.error(`目前機器人 (${bot_id}) 不在被指派的任務名單內！`);
+            return;
+        }
+        
+        mapart_build_cfg_cache.worker_id = workerIndex;
+        mapart_build_cfg_cache.worker_count = botIds.length;
         mapart_build_cfg_cache.bot_id = bot_id;
         
-        // 合併全域與機器人特定替換表
-        const botReplace = mapart_build_cfg_cache.replaceMaterials || [];
-        const globalReplace = mapart_global_cfg.replaceMaterials || [];
-        mapart_build_cfg_cache.replaceMaterials = [...globalReplace, ...botReplace];
+        const stationFile = mapart_build_cfg_cache?.station || 'station.json';
+        
+        // 將材料站的資料合併進 mapart_build_cfg_cache
+        try {
+            const stationConfig = await readConfig(`${process.cwd()}/config/global/${stationFile}`);
+            if (stationConfig && stationConfig.offset) {
+                mapart_build_cfg_cache.offset = stationConfig.offset;
+            }
+        } catch(e) {
+            logger.warn(`無法讀取材料站設定檔 ${stationFile}: ${e.message}`);
+        }
+        
+        // 替換材料已經在全域設定裡，直接使用
+        mapart_build_cfg_cache.replaceMaterials = mapart_build_cfg_cache.replaceMaterials || [];
 
         delete mapart_build_cfg_cache.open;
         delete mapart_build_cfg_cache.wrap;

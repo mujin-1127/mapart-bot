@@ -628,48 +628,41 @@
 
         async function loadTaskConfigs() {
             try {
-                // 1. 取得當前機器人的基準設定
-                const res = await fetch(`/api/${currentBotId}/config/bot`);
-                const cfg = await res.json();
+                // 1. 取得全域最新一次佈署的任務設定
+                const res = await fetch(`/api/global/config/mapart`);
+                const lastTask = await res.json();
                 
-                if (cfg.schematic) {
-                    document.getElementById('task-schematic-filename').value = cfg.schematic.filename || "";
-                    document.getElementById('task-pos-x').value = cfg.schematic.placementPoint_x || 0;
-                    document.getElementById('task-pos-y').value = cfg.schematic.placementPoint_y || 100;
-                    document.getElementById('task-pos-z').value = cfg.schematic.placementPoint_z || 0;
+                if (lastTask && lastTask.schematic) {
+                    document.getElementById('task-schematic-filename').value = lastTask.schematic.filename || "";
+                    document.getElementById('task-pos-x').value = lastTask.schematic.placementPoint_x || 0;
+                    document.getElementById('task-pos-y').value = lastTask.schematic.placementPoint_y || 100;
+                    document.getElementById('task-pos-z').value = lastTask.schematic.placementPoint_z || 0;
                 }
-                if (cfg.workRegion) {
-                    document.getElementById('task-reg-min-x').value = cfg.workRegion.minX ?? 0;
-                    document.getElementById('task-reg-min-z').value = cfg.workRegion.minZ ?? 0;
-                    document.getElementById('task-reg-max-x').value = cfg.workRegion.maxX ?? 128;
-                    document.getElementById('task-reg-max-z').value = cfg.workRegion.maxZ ?? 128;
+                if (lastTask && lastTask.workRegion) {
+                    document.getElementById('task-reg-min-x').value = lastTask.workRegion.minX ?? 0;
+                    document.getElementById('task-reg-min-z').value = lastTask.workRegion.minZ ?? 0;
+                    document.getElementById('task-reg-max-x').value = lastTask.workRegion.maxX ?? 128;
+                    document.getElementById('task-reg-max-z').value = lastTask.workRegion.maxZ ?? 128;
+                }
+                if (lastTask) {
+                    renderTaskReplaceTable(lastTask.replaceMaterials || []);
                 }
 
-                renderTaskReplaceTable(cfg.replaceMaterials || []);
-
-                // 2. 遍歷所有機器人，比對任務內容以更新勾選狀態
-                const currentFilename = cfg.schematic?.filename;
-                const currentX = cfg.schematic?.placementPoint_x;
-                const currentZ = cfg.schematic?.placementPoint_z;
-
+                // 2. 勾選機器人：根據 lastTask.botIds 來勾選
                 const botsRes = await fetch('/api/bots');
                 const bots = await botsRes.json();
+                
+                // 確保清單存在
+                updateTaskBotList(bots);
 
+                const selectedBots = lastTask?.botIds || [];
                 for (const id of bots) {
-                    const resBot = await fetch(`/api/${id}/config/bot`);
-                    const cfgBot = await resBot.json();
-                    
-                    const isMatched = cfgBot.schematic && 
-                                     cfgBot.schematic.filename === currentFilename && 
-                                     cfgBot.schematic.placementPoint_x === currentX &&
-                                     cfgBot.schematic.placementPoint_z === currentZ;
-
                     const chk = document.querySelector(`.task-bot-chk[value="${id}"]`);
-                    if (chk) chk.checked = !!isMatched;
+                    if (chk) chk.checked = selectedBots.includes(id);
                 }
 
-                // 3. 載入材料站設定
-                const resS = await fetch(`/api/${currentBotId}/config/station`);
+                // 3. 載入材料站設定 (全域設定)
+                const resS = await fetch(`/api/global/config/station`);
                 const stCfg = await resS.json();
                 document.getElementById('st-warp').value = stCfg.stationWarp || "";
                 renderMaterialsTable(stCfg.materials || []);
@@ -782,7 +775,7 @@
         async function saveGlobalStationConfig() {
             try {
                 // 1. 先讀取舊設定以保留未在 GUI 顯示的欄位 (如 stationName, overfull 等)
-                const oldConfigRes = await fetch(`/api/${currentBotId}/config/station?t=${Date.now()}`, { cache: "no-store" });
+                const oldConfigRes = await fetch(`/api/global/config/station?t=${Date.now()}`, { cache: "no-store" });
                 let oldConfig = await oldConfigRes.json();
 
                 const newConfig = {
@@ -804,7 +797,7 @@
                         [ parseInt(tr.querySelector('.mat-x').value), parseInt(tr.querySelector('.mat-y').value), parseInt(tr.querySelector('.mat-z').value), tr.querySelector('.mat-f').value, tr.querySelector('.mat-bf').value ]
                     ])
                 };
-                await fetch(`/api/${currentBotId}/config/station`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newConfig) });
+                await fetch(`/api/global/config/station`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newConfig) });
                 showToast('材料站設定已儲存 (含自動校正 Offset)');
             } catch (e) {
                 console.error(e);
@@ -862,6 +855,13 @@
             socket.emit('deploy_task', taskData);
             const msg = `任務已部署至: ${selectedBots.join(', ')}\n區域 X: ${taskData.region.minX} ~ ${taskData.region.maxX}`;
             showToast(msg, 'success', 5000);
+            
+            // 部署後稍微延遲讓後端寫入設定檔，然後重新讀取全域設定
+            setTimeout(() => {
+                if (document.getElementById('schematic-settings').classList.contains('active')) {
+                    loadTaskConfigs();
+                }
+            }, 300);
         }
     </script>
 </body>
