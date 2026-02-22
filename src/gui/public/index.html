@@ -171,6 +171,7 @@
                         <h2>地圖畫進度</h2>
                         <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
                         <div class="status-item">進度: <span id="progress-text">0%</span> (<span id="placed-blocks">0</span> / <span id="total-blocks">0</span>)</div>
+                        <div class="status-item">耗時: <span id="build-time-text">00:00:00</span></div>
                         
                         <h2 style="margin-top: 20px;">單機控制</h2>
                         <div style="display: flex; gap: 10px; margin-top: 10px;">
@@ -440,6 +441,24 @@
                 document.getElementById('progress-text').innerText = percent + "%";
                 document.getElementById('placed-blocks').innerText = bc.placedBlock || 0;
                 document.getElementById('total-blocks').innerText = bc.totalBlocks || 0;
+                
+                // 計時器邏輯
+                if (bc.startTime && bc.startTime !== -1) {
+                    const end = (bc.endTime && bc.endTime !== -1) ? bc.endTime : Date.now();
+                    const diff = Math.floor((end - bc.startTime) / 1000);
+                    const h = Math.floor(diff / 3600).toString().padStart(2, '0');
+                    const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+                    const s = (diff % 60).toString().padStart(2, '0');
+                    document.getElementById('build-time-text').innerText = `${h}:${m}:${s}`;
+                } else {
+                    document.getElementById('build-time-text').innerText = "00:00:00";
+                }
+            } else {
+                document.getElementById('build-time-text').innerText = "00:00:00";
+                document.getElementById('progress-fill').style.width = "0%";
+                document.getElementById('progress-text').innerText = "0%";
+                document.getElementById('placed-blocks').innerText = "0";
+                document.getElementById('total-blocks').innerText = "0";
             }
 
             const invContainer = document.getElementById('inventory');
