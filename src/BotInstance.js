@@ -77,20 +77,55 @@ class BotInstance {
       this.bot.bot_id = this.id
       this.mapartReady = false
 
-      // 初始化資源包處理器
+      this.log.info(`正在啟動 Mineflayer (版本: ${opts.version || '自動偵測'})`);
+
+      // --- 偵錯區 ---
+      this.bot._client.on('packet', (data, meta) => {
+        // 印出登入與設定階段的封包，有助於釐清為何斷線
+        if (['login', 'configuration'].includes(this.bot._client.state)) {
+            console.log(`[Packet][${this.id}][${this.bot._client.state}] ${meta.name}`);
+        }
+      });
+
+      this.bot._client.on('state', (state) => {
+        this.log.info(`連線狀態變更: ${state}`);
+      });
+
+      this.bot.on('login', () => {
+        this.log.info('已成功通過身份驗證 (Login)');
+      });
+
+      this.bot._client.on('disconnect', (packet) => {
+        const reason = packet.reason ? JSON.stringify(packet.reason) : '無原因';
+        this.log.warn(`連線中斷詳情 (Disconnect Packet): ${reason}`);
+      });
+
+      this.bot._client.on('error', (err) => {
+        this.log.error(`低階連線錯誤 (Socket Error): ${err.message}`);
+      });
+      // --------------
+
+      // 5. Configuration 階段資源包監聽 (1.20.2+ 必須在實例建立後立刻註冊，不然會錯過)
       const resourcePackHandler = new ResourcePackHandler(this.bot, { autoAccept: true, logPackets: true })
       resourcePackHandler.enable()
 
-      // 掛載事件
-      this.bot.on('spawn', async () => {
+      // 載入插件與初始實例化 (只需執行一次，不用等 spawn)
+      this.bot.loadPlugin(require('mineflayer-collectblock').plugin)
+      this.entityIndexer = new EntityIndexer(this.bot)
+      this.bot.entityIndexer = this.entityIndexer
+      this.bot.botinfo = { server: 0 }
+
+      // 掛載事件 - 使用 once 避免每次死亡重生/切換維度時重複執行初始化
+      this.bot.once('spawn', async () => {
         this.status = 'online';
         this.log.info('機器人已進入遊戲');
         await this.sendLobbyCommand()
-        this.entityIndexer = new EntityIndexer(this.bot)
-        this.bot.entityIndexer = this.entityIndexer
-        this.bot.botinfo = { server: 0 }
-        this.bot.loadPlugin(require('mineflayer-collectblock').plugin)
         await this.initMapart()
+      })
+
+      // 每次重生時觸發 (包含初次進入遊戲與死亡後)
+      this.bot.on('spawn', () => {
+        this.status = 'online';
       })
 
       this.bot.on('message', (jsonMsg) => this.onMessage(jsonMsg))

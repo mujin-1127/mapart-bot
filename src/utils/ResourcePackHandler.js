@@ -30,13 +30,19 @@ class ResourcePackHandler {
     // 1.20.3+ 使用 add_resource_pack
     this.bot._client.on('add_resource_pack', (packet) => {
       console.log('[ResourcePack] ⚡ 捕獲到 add_resource_pack 封包（1.20.3+）！')
-      this.handleResourcePackRequest(packet)
+      this.handleResourcePackRequest(packet, true) // true 表示是新協議
+    })
+
+    // 移除資源包封包 (1.20.3+)
+    this.bot._client.on('remove_resource_pack', (packet) => {
+      const uuid = packet.uuid || packet.UUID
+      console.log(`[ResourcePack] 🗑️ 伺服器要求移除資源包: ${uuid || '全部'}`)
     })
 
     // 舊版本使用 resource_pack_send
     this.bot._client.on('resource_pack_send', (packet) => {
       console.log('[ResourcePack] ⚡ 捕獲到 resource_pack_send 封包（舊版）！')
-      this.handleResourcePackRequest(packet)
+      this.handleResourcePackRequest(packet, false) // false 表示是舊協議
     })
 
     this.isEnabled = true
@@ -61,13 +67,15 @@ class ResourcePackHandler {
   /**
    * 處理資源包請求
    */
-  handleResourcePackRequest(packet) {
+  handleResourcePackRequest(packet, isNewProtocol) {
     if (this.options.logPackets) {
       console.log('[ResourcePack] 收到資源包請求:')
       console.log(`  URL: ${packet.url || 'N/A'}`)
       console.log(`  Hash: ${packet.hash || 'N/A'}`)
       console.log(`  Forced: ${packet.forced || false}`)
-      console.log(`  Prompt Message: ${packet.promptMessage || 'N/A'}`)
+      if (isNewProtocol) {
+        console.log(`  UUID: ${packet.uuid || packet.UUID || 'N/A'}`)
+      }
     }
 
     // 記錄到歷史
@@ -76,7 +84,9 @@ class ResourcePackHandler {
       url: packet.url,
       hash: packet.hash,
       forced: packet.forced,
-      promptMessage: packet.promptMessage
+      promptMessage: packet.promptMessage,
+      uuid: packet.uuid || packet.UUID,
+      isNewProtocol
     })
 
     // 保持最多10條歷史記錄
@@ -88,7 +98,7 @@ class ResourcePackHandler {
       // 使用 setImmediate 確保在下一個事件循環中處理
       // 這樣可以避免某些插件（如 Nexo）的時序問題
       setImmediate(() => {
-        this.acceptResourcePack(packet)
+        this.acceptResourcePack(packet, isNewProtocol)
       })
     }
   }
@@ -96,64 +106,57 @@ class ResourcePackHandler {
   /**
    * 接受資源包
    */
-  acceptResourcePack(packet) {
+  acceptResourcePack(packet, isNewProtocol) {
     try {
-      // 1.20.3+ 使用 resource_pack_status，需要包含 uuid
-      // 狀態代碼:
-      // 0 - successfully_loaded (成功載入)
-      // 1 - declined (拒絕)
-      // 2 - failed_download (下載失敗)
-      // 3 - accepted (已接受)
-      // 4 - downloaded (已下載)
-      // 5 - invalid_url (無效URL)
-      // 6 - failed_reload (重載失敗)
-      // 7 - discarded (已丟棄)
-
-      console.log('[ResourcePack] 📥 處理資源包請求 (1.20.3+)')
+      console.log(`[ResourcePack] 📥 處理資源包請求 (${isNewProtocol ? '1.20.3+' : '舊版協議'})`)
 
       const uuid = packet.uuid || packet.UUID
+      // 註：在 minecraft-protocol 中，不論協議新舊，回應封包名稱一律為 'resource_pack_receive'
+      // 只是新版 (1.20.3+) 的 payload 中需要帶有 uuid 屬性。
+      const packetName = 'resource_pack_receive'
 
-    // 步驟 1: 發送 accepted (已接受)
-    if (!this.bot._client || this.bot._client.state === 'closed') return;
-    
-    // 檢查版本以決定封包格式
-    const isNewVersion = this.bot.version === '1.20.3' || this.bot.version === '1.20.4' || this.bot.majorVersion >= '1.20';
-    
-    const sendPacket = (resultCode) => {
-      if (!this.bot._client || this.bot._client.state === 'closed') return;
-      
-      const payload = { result: resultCode };
-      if (uuid) payload.uuid = uuid; // 1.20.3+ 需要 uuid
-      
-      // 根據版本使用不同的封包名稱或欄位
-      // 舊版 (1.8-1.20.2): serverbound 'resource_pack_receive' { result, (optional) hash }
-      // 新版 (1.20.3+): serverbound 'resource_pack_receive' { uuid, result }
-      
-      this.bot._client.write('resource_pack_receive', payload);
-    };
+      const sendStatus = (resultCode) => {
+        if (!this.bot._client || this.bot._client.state === 'closed') return;
+        
+        const payload = { result: resultCode };
+        if (isNewProtocol && uuid) {
+          payload.uuid = uuid;
+        } else if (!isNewProtocol && packet.hash) {
+          // 舊版某些伺服器可能會需要 hash，但在 NMP 中 resource_pack_receive 通常只期待 result
+          // payload.hash = packet.hash; 
+        }
+        
+        this.bot._client.write(packetName, payload);
+      };
 
-    // 模擬真實客戶端的延遲與順序
-    // 1. Accepted (3)
-    sendPacket(3);
-    console.log('[ResourcePack] ✓ 已接受資源包');
+      // 模擬真實客戶端的延遲與順序 (照 1.20.3+ 協議.md 建議)
+      // 1. Accepted (3) - 立即發送
+      sendStatus(3);
+      console.log('[ResourcePack] ✓ 已發送 accepted (3)');
 
-    // 2. Downloaded (4) - 模擬下載時間
-    setTimeout(() => {
-      sendPacket(0); // 這裡修正為 0 (Successfully loaded) - 許多伺服器只期待這個最終狀態
-      // 某些伺服器可能需要先傳 2 (Successfully downloaded) 再傳 0 (Successfully loaded)
-      // 但根據 mineflayer 文件與抓包，通常直接回傳 0 即可，或者依序回傳
-      // 修正: 根據 Wiki.vg:
-      // 0: Successfully loaded
-      // 1: Declined
-      // 2: Failed download
-      // 3: Accepted
-      
-      // 許多反作弊或資源包插件期待完整的狀態流：Accepted -> Successfully Loaded
-      // 這裡直接發送 Loaded (0) 應該是最保險的，因為 Accepted (3) 已經發送過了
-      console.log('[ResourcePack] ✅ 資源包載入完成');
-      this.bot.resourcePackLoaded = true;
-      this.bot.emit('resourcePackLoaded');
-    }, 1000); // 延遲 1 秒模擬下載與載入
+      if (isNewProtocol) {
+        // 2. Downloaded (4) - 50ms 後
+        setTimeout(() => {
+          sendStatus(4);
+          console.log('[ResourcePack] ✓ 已發送 downloaded (4)');
+
+          // 3. Successfully loaded (0) - 再 50ms 後
+          setTimeout(() => {
+            sendStatus(0);
+            console.log('[ResourcePack] ✅ 已發送 successfully_loaded (0)');
+            this.bot.resourcePackLoaded = true;
+            this.bot.emit('resourcePackLoaded');
+          }, 50); // 改成 50ms，以符合文件
+        }, 50);
+      } else {
+        // 舊版協議：通常直接發送 Successfully Loaded (0) 即可
+        setTimeout(() => {
+          sendStatus(0);
+          console.log('[ResourcePack] ✅ 已發送 successfully_loaded (0)');
+          this.bot.resourcePackLoaded = true;
+          this.bot.emit('resourcePackLoaded');
+        }, 500); // 舊版延遲稍長一點
+      }
 
     } catch (error) {
       console.error('[ResourcePack] 接受資源包時發生錯誤:', error.message)
@@ -164,11 +167,13 @@ class ResourcePackHandler {
   /**
    * 拒絕資源包
    */
-  declineResourcePack() {
+  declineResourcePack(isNewProtocol = true, uuid = null) {
     try {
-      this.bot._client.write('resource_pack_receive', {
-        result: 1 // 1 = Declined (拒絕)
-      })
+      const packetName = 'resource_pack_receive'
+      const payload = { result: 1 } // 1 = Declined
+      if (isNewProtocol && uuid) payload.uuid = uuid
+
+      this.bot._client.write(packetName, payload)
       console.log('[ResourcePack] ❌ 已拒絕資源包')
     } catch (error) {
       console.error('[ResourcePack] 拒絕資源包時發生錯誤:', error.message)
@@ -178,11 +183,13 @@ class ResourcePackHandler {
   /**
    * 報告下載失敗
    */
-  reportDownloadFailed() {
+  reportDownloadFailed(isNewProtocol = true, uuid = null) {
     try {
-      this.bot._client.write('resource_pack_receive', {
-        result: 2 // 2 = Failed download (下載失敗)
-      })
+      const packetName = 'resource_pack_receive'
+      const payload = { result: 2 } // 2 = Failed download
+      if (isNewProtocol && uuid) payload.uuid = uuid
+
+      this.bot._client.write(packetName, payload)
       console.log('[ResourcePack] ⚠️ 已報告資源包下載失敗')
     } catch (error) {
       console.error('[ResourcePack] 報告下載失敗時發生錯誤:', error.message)
