@@ -6,26 +6,59 @@
     <title>Mineflayer Bot Dashboard</title>
     <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1a1a1a; color: #eee; margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
-        .header { background-color: #2c3e50; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.5); position: relative; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1a1a1a; color: #eee; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        .tabs { display: flex; background: #252525; padding: 0 20px; border-bottom: 1px solid #444; position: sticky; top: 0; z-index: 100; align-items: center; }
-        .tab { padding: 12px 25px; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; }
-        .tab:hover { background: #333; }
-        .tab.active { border-bottom: 3px solid #3498db; color: #3498db; background: #333; }
+        /* Header */
+        .header { background-color: #2c3e50; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.5); position: relative; z-index: 101; flex-shrink: 0; }
+        
+        /* Layout */
+        .main-wrapper { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Sidebar */
+        .sidebar { width: 240px; background: #252525; border-right: 1px solid #444; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+        .sidebar-title { padding: 15px; color: #aaa; font-size: 0.9em; border-bottom: 1px solid #333; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
+        .bot-list-container { flex: 1; overflow-y: auto; }
+        .bot-item { padding: 12px 15px; border-bottom: 1px solid #333; cursor: pointer; display: flex; align-items: center; transition: 0.2s; position: relative; }
+        .bot-item:hover { background: #333; }
+        .bot-item.active { background: #2c3e50; border-left: 4px solid #3498db; }
+        
+        /* 側邊欄按鈕樣式 */
+        .sidebar-actions { display: none; margin-left: auto; gap: 8px; }
+        .bot-item:hover .sidebar-actions { display: flex; }
+        .sidebar-btn { background: none; padding: 5px; font-size: 14px; opacity: 0.6; border: none; color: white; cursor: pointer; }
+        .sidebar-btn:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+        .add-bot-btn { background: #3498db; padding: 2px 8px; font-size: 12px; border-radius: 4px; border: none; color: white; cursor: pointer; }
+        .add-bot-btn:hover { background: #2980b9; }
+        .bot-status-dot { width: 10px; height: 10px; border-radius: 50%; background: #7f8c8d; margin-right: 10px; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+        .bot-status-dot.online { background: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+        .bot-status-dot.connecting { background: #f1c40f; }
+        .bot-status-dot.offline { background: #e74c3c; }
+        .bot-info { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+        .bot-id { font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bot-user { font-size: 0.85em; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .bot-selector { margin-left: auto; background: #333; color: white; border: 1px solid #444; padding: 5px 10px; border-radius: 4px; }
+        /* Content Area */
+        .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; background: #1a1a1a; }
+        
+        /* Tabs */
+        .tabs { display: flex; background: #252525; padding: 0 20px; border-bottom: 1px solid #444; flex-shrink: 0; }
+        .tab { padding: 12px 25px; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.3s; color: #aaa; }
+        .tab:hover { background: #333; color: #fff; }
+        .tab.active { border-bottom: 3px solid #3498db; color: #3498db; background: #2c2c2c; font-weight: bold; }
 
-        .container { display: none; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; flex: 1; }
+        /* Containers */
+        .scroll-container { flex: 1; overflow-y: auto; padding: 20px; box-sizing: border-box; }
+        .container { display: none; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1600px; margin: 0 auto; width: 100%; }
         .container.active { display: grid; }
         
-        .settings-container { display: none; flex-direction: column; padding: 20px; flex: 1; }
+        .settings-container { display: none; flex-direction: column; max-width: 1200px; margin: 0 auto; width: 100%; }
         .settings-container.active { display: flex; }
 
+        /* Cards & Components */
         .card { background: #252525; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: flex; flex-direction: column; margin-bottom: 20px; }
-        .card h2 { margin-top: 0; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 20px; }
+        .card h2 { margin-top: 0; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 20px; font-size: 1.2em; }
         .settings-section { margin-bottom: 30px; border: 1px solid #444; padding: 20px; border-radius: 8px; background: #2c2c2c; }
-        .settings-section h3 { margin-top: 0; color: #3498db; font-size: 1.2em; border-left: 4px solid #3498db; padding-left: 10px; }
+        .settings-section h3 { margin-top: 0; color: #3498db; font-size: 1.1em; border-left: 4px solid #3498db; padding-left: 10px; }
 
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .form-group { margin-bottom: 15px; }
@@ -38,19 +71,17 @@
         th, td { padding: 10px; border: 1px solid #444; text-align: left; font-size: 0.9em; }
         th { background: #2c3e50; color: white; }
         tr:hover { background: #3d3d3d; }
-        .coord-input { width: 60px; padding: 5px; background: #222; border: 1px solid #444; color: #2ecc71; text-align: center; }
         
         .status-item { margin: 10px 0; font-size: 18px; }
         .status-item span { font-weight: bold; color: #3498db; }
-        .inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; overflow-y: auto; max-height: 400px; padding-right: 10px; }
-        .inventory-item { background: #333; border: 1px solid #444; border-radius: 4px; padding: 5px; text-align: center; position: relative; }
-        .item-count { position: absolute; bottom: 2px; right: 5px; font-size: 12px; background: rgba(0,0,0,0.7); padding: 0 4px; border-radius: 4px; }
-        .item-name { font-size: 11px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 8px; overflow-y: auto; max-height: 400px; padding-right: 5px; }
+        .inventory-item { background: #333; border: 1px solid #444; border-radius: 4px; padding: 5px; text-align: center; position: relative; font-size: 0.8em; }
+        .item-count { position: absolute; bottom: 2px; right: 2px; font-size: 10px; background: rgba(0,0,0,0.7); padding: 0 3px; border-radius: 4px; }
+        .item-name { font-size: 10px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
         .progress-bar { height: 30px; background: #333; border-radius: 15px; margin: 20px 0; overflow: hidden; border: 2px solid #444; }
         .progress-fill { height: 100%; background: linear-gradient(90deg, #3498db, #2ecc71); width: 0%; transition: width 0.5s ease-out; }
 
-        .controls { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
         button { padding: 10px 20px; background: #3498db; border: none; color: white; border-radius: 4px; cursor: pointer; transition: 0.2s; }
         button:hover { background: #2980b9; }
         button.save-btn { background: #2ecc71; width: 100%; font-size: 1.1em; font-weight: bold; margin-top: 20px; }
@@ -58,21 +89,31 @@
         button.btn-danger { background: #e74c3c; padding: 5px 10px; }
         button.btn-add { background: #3498db; margin-top: 10px; width: auto; }
 
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #1a1a1a; }
-        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        .bot-checkbox-list { display: flex; flex-wrap: wrap; gap: 15px; padding: 10px; background: #333; border-radius: 4px; }
+        .bot-checkbox-item { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+        .bot-checkbox-item input { width: 18px; height: 18px; cursor: pointer; }
 
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
         .modal-content { background: #252525; margin: 5% auto; padding: 20px; border-radius: 8px; width: 80%; max-width: 800px; height: 80%; display: flex; flex-direction: column; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 10px; }
         .file-list { flex: 1; overflow-y: auto; margin: 15px 0; border: 1px solid #444; border-radius: 4px; }
         .file-item { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; display: flex; align-items: center; }
         .file-item:hover { background: #333; }
-        .file-item.directory { color: #3498db; font-weight: bold; }
-        .file-item.file { color: #eee; }
+
+        /* RWD */
+        @media (max-width: 1000px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        /* Toast Notification */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; pointer-events: none; }
+        .toast { background: #2ecc71; color: white; padding: 12px 25px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); opacity: 0; transform: translateX(50px); transition: all 0.3s ease; pointer-events: auto; min-width: 200px; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast.error { background: #e74c3c; }
+        .toast.warning { background: #f39c12; }
     </style>
 </head>
 <body>
+    <div id="toast-container"></div>
     <div class="header">
         Mineflayer Bot 中央控制面板
         <div style="font-size: 12px; font-weight: normal; color: #aaa;">
@@ -80,134 +121,192 @@
         </div>
     </div>
 
-    <div class="tabs">
-        <div class="tab active" onclick="switchTab('dashboard', this)">儀表板</div>
-        <div class="tab" onclick="switchTab('settings', this)">目前機器人設定</div>
-        <div class="tab" onclick="switchTab('accounts', this)">帳號管理</div>
-        <select id="bot-select" class="bot-selector" onchange="changeActiveBot(this.value)">
-            <option value="">-- 選擇機器人 --</option>
-        </select>
-    </div>
-
-    <div id="dashboard" class="container active">
-        <div class="card">
-            <h2>機器人控制 - <span id="display-bot-name">請選擇機器人</span></h2>
-            <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
-                狀態: <span id="bot-status-text" style="font-weight: bold;">離線</span>
-                <button id="start-btn" onclick="startBot(false)" style="background: #2ecc71;">啟動連線</button>
-                <button id="start-excl-btn" onclick="startBot(true)" style="background: #f39c12;">排他性啟動</button>
-                <button id="stop-btn" onclick="stopBot()" style="background: #e74c3c;">中斷連線</button>
+    <div class="main-wrapper">
+        <!-- 左側機器人列表 -->
+        <div class="sidebar">
+            <div class="sidebar-title">
+                機器人列表
+                <button class="add-bot-btn" onclick="openAccountModal()">+ 新增</button>
             </div>
-            
-            <div id="msa-section" style="display: none; background: #2c3e50; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #3498db;">
-                <h3 style="margin-top: 0; color: #3498db;">Microsoft 登入驗證</h3>
-                <p>請開啟網址：<a id="msa-url" href="#" target="_blank" style="color: #2ecc71; font-weight: bold;"></a></p>
-                <p>輸入代碼：<span id="msa-code" style="font-size: 24px; color: #f1c40f; font-family: monospace; font-weight: bold;"></span></p>
-                <p style="font-size: 12px; color: #aaa;">代碼有效期約 15 分鐘，請盡快完成登入。</p>
-            </div>
-
-            <h2>地圖畫進度</h2>
-            <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
-            <div class="status-item">進度: <span id="progress-text">0%</span> (<span id="placed-blocks">0</span> / <span id="total-blocks">0</span>)</div>
-            <h2>快捷控制</h2>
-            <div class="controls">
-                <input type="text" id="cmd-input" class="form-control" style="flex: 1;" placeholder="輸入指令 (不加 .)">
-                <button onclick="sendCommand()">執行</button>
-            </div>
-            <div class="controls">
-                <button onclick="sendQuickCmd('mp build')">開始建造</button>
-                <button onclick="sendQuickCmd('mp stop')">中止</button>
-                <button onclick="sendQuickCmd('mp drop')">丟棄物品</button>
+            <div id="bot-sidebar" class="bot-list-container">
+                <!-- 動態生成機器人項目 -->
             </div>
         </div>
 
-        <div class="card">
-            <h2>背包內容</h2>
-            <div id="inventory" class="inventory-grid"></div>
-        </div>
-    </div>
+        <!-- 右側內容區 -->
+        <div class="content-area">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('dashboard', this)">儀表板</div>
+                <div class="tab" onclick="switchTab('schematic-settings', this)">投影任務設定</div>
+            </div>
 
-    <div id="settings" class="settings-container">
-        <!-- 機器人特定設定 -->
-        <div class="card">
-            <h2>機器人特定設定 - <span class="active-bot-id-text">無</span></h2>
-            <div class="settings-section">
-                <h3>投影檔設定 (Schematic)</h3>
-                <div class="form-group">
-                    <label>投影檔完整路徑</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="bot-schematic-filename" class="form-control" placeholder="輸入或選擇 .nbt 檔案路徑...">
-                        <button onclick="openFileBrowser()" style="white-space: nowrap;">瀏覽檔案</button>
+            <div class="scroll-container">
+                <!-- 儀表板 (Dashboard) -->
+                <div id="dashboard" class="container active">
+                    <!-- 全體同步操作 -->
+                    <div class="card" style="grid-column: 1 / -1; margin-bottom: 20px;">
+                        <h2 style="border-bottom: 2px solid #9b59b6; color: #9b59b6;">全體同步操作 (對所有在線機器人)</h2>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button onclick="allBotsCmd('mp build')" style="background: #9b59b6;">全體開始任務</button>
+                            <button onclick="allBotsCmd('mp stop')" style="background: #d35400;">全體中止任務</button>
+                            <button onclick="allBotsCmd('mp drop')" style="background: #7f8c8d;">全體清空背包</button>
+                        </div>
+                    </div>
+
+                    <!-- 左欄：單機控制 -->
+                    <div class="card">
+                        <h2>機器人控制 - <span id="display-bot-name">請選擇機器人</span></h2>
+                        <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            狀態: <span id="bot-status-text" style="font-weight: bold;">離線</span>
+                            <div style="flex: 1;"></div>
+                            <button onclick="startBot(false)" style="background: #2ecc71;">啟動連線</button>
+                            <button onclick="stopBot()" style="background: #e74c3c;">中斷連線</button>
+                        </div>
+                        
+                        <div id="msa-section" style="display: none; background: #2c3e50; padding: 15px; border-radius: 8px; border: 2px solid #3498db; margin-bottom: 15px;">
+                            <h3 style="margin:0; color: #3498db;">驗證代碼: <span id="msa-code" style="color: #f1c40f;"></span></h3>
+                            <p style="font-size: 14px; margin: 10px 0;">請至 <a id="msa-url" href="#" target="_blank" style="color: #2ecc71;"></a> 輸入代碼</p>
+                        </div>
+
+                        <h2>地圖畫進度</h2>
+                        <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+                        <div class="status-item">進度: <span id="progress-text">0%</span> (<span id="placed-blocks">0</span> / <span id="total-blocks">0</span>)</div>
+                        
+                        <h2 style="margin-top: 20px;">單機控制</h2>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <input type="text" id="cmd-input" class="form-control" style="flex: 1;" placeholder="發送指令 (不加 .)">
+                            <button onclick="sendCommand()">執行</button>
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+                            <button onclick="sendQuickCmd('mp build')">開始任務</button>
+                            <button onclick="sendQuickCmd('mp stop')" style="background: #e67e22;">中止</button>
+                            <button onclick="sendQuickCmd('mp drop')" style="background: #95a5a6;">清空背包</button>
+                            <button onclick="sendQuickCmd('mp res tp ' + (document.getElementById('st-warp').value || ''))" style="background: #8e44ad;">傳送至補給點</button>
+                        </div>
+                    </div>
+
+                    <!-- 右欄：背包內容 -->
+                    <div class="card">
+                        <h2>背包內容</h2>
+                        <div id="inventory" class="inventory-grid"></div>
                     </div>
                 </div>
-                <div class="form-grid">
-                    <div class="form-group"><label>放置點 X</label><input type="number" id="bot-pos-x" class="form-control"></div>
-                    <div class="form-group"><label>放置點 Y</label><input type="number" id="bot-pos-y" class="form-control"></div>
-                    <div class="form-group"><label>放置點 Z</label><input type="number" id="bot-pos-z" class="form-control"></div>
-                </div>
-                <h3>建造區域限制</h3>
-                <div class="form-grid">
-                    <div class="form-group"><label>最小 X</label><input type="number" id="reg-min-x" class="form-control" value="0"></div>
-                    <div class="form-group"><label>最小 Z</label><input type="number" id="reg-min-z" class="form-control" value="0"></div>
-                    <div class="form-group"><label>最大 X</label><input type="number" id="reg-max-x" class="form-control" value="128"></div>
-                    <div class="form-group"><label>最大 Z</label><input type="number" id="reg-max-z" class="form-control" value="128"></div>
-                </div>
 
-                <h3>方塊替換設定</h3>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>原始方塊</th><th>替換為</th><th>操作</th></tr></thead>
-                        <tbody id="replace-materials-body"></tbody>
-                    </table>
-                </div>
-                <button class="btn-add" onclick="addReplaceRow()">+ 新增替換項目</button>
-            </div>
-            <button class="save-btn" onclick="saveBotConfig()">儲存此機器人設定</button>
-        </div>
+                <!-- 投影任務設定 (Schematic Settings) -->
+                <div id="schematic-settings" class="settings-container">
+                    <div class="card">
+                        <h2>1. 選擇投影檔案與座標</h2>
+                        <div class="settings-section">
+                            <div class="form-group">
+                                <label>投影檔路徑 (.nbt)</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="text" id="task-schematic-filename" class="form-control" placeholder="選擇或輸入路徑...">
+                                    <button onclick="openFileBrowser()">瀏覽檔案</button>
+                                </div>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group"><label>放置點 X</label><input type="number" id="task-pos-x" class="form-control" value="0"></div>
+                                <div class="form-group"><label>放置點 Y</label><input type="number" id="task-pos-y" class="form-control" value="100"></div>
+                                <div class="form-group"><label>放置點 Z</label><input type="number" id="task-pos-z" class="form-control" value="0"></div>
+                            </div>
+                            <h3>總工作區域限制 (協作時會以此範圍進行均分)</h3>
+                            <div class="form-group">
+                                <label>區域預設快速選擇</label>
+                                <select id="task-region-preset" class="form-control" onchange="applyTaskRegionPreset(this.value)">
+                                    <option value="full">完整區域 (0-128)</option>
+                                    <option value="q1">左上 (Q1: 0-63, 0-63)</option>
+                                    <option value="q2">右上 (Q2: 64-128, 0-63)</option>
+                                    <option value="q3">左下 (Q3: 0-63, 64-128)</option>
+                                    <option value="q4">右下 (Q4: 64-128, 64-128)</option>
+                                    <option value="left">左半部 (0-63, 0-128)</option>
+                                    <option value="right">右半部 (64-128, 0-128)</option>
+                                    <option value="custom">-- 自訂區域 --</option>
+                                </select>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group"><label>最小 X</label><input type="number" id="task-reg-min-x" class="form-control" value="0"></div>
+                                <div class="form-group"><label>最小 Z</label><input type="number" id="task-reg-min-z" class="form-control" value="0"></div>
+                                <div class="form-group"><label>最大 X</label><input type="number" id="task-reg-max-x" class="form-control" value="128"></div>
+                                <div class="form-group"><label>最大 Z</label><input type="number" id="task-reg-max-z" class="form-control" value="128"></div>
+                            </div>
+                        </div>
 
-        <!-- 材料站設定 (全域) -->
-        <div class="card">
-            <h2>材料站設定 (全域)</h2>
-            <div class="settings-section">
-                <div class="form-group"><label>傳送點 (/res tp)</label><input type="text" id="st-warp" class="form-control"></div>
-                <h3>材料清單</h3>
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>材料名稱</th><th>X</th><th>Y</th><th>Z</th><th>箱子</th><th>按鈕</th><th>操作</th></tr></thead>
-                        <tbody id="st-materials-body"></tbody>
-                    </table>
+                        <h2>2. 指派執行機器人</h2>
+                        <div class="settings-section">
+                            <p style="font-size: 0.9em; color: #aaa; margin-top: 0;">系統將自動平分 128x128 區域給所選的在線機器人。</p>
+                            <div id="task-bot-list" class="bot-checkbox-list">
+                                <!-- 動態載入機器人勾選框 -->
+                            </div>
+                        </div>
+
+                        <h2>3. 額外設定 (替換方塊)</h2>
+                        <div class="settings-section">
+                            <div class="table-container">
+                                <table>
+                                    <thead><tr><th>原始方塊</th><th>替換為</th><th>操作</th></tr></thead>
+                                    <tbody id="task-replace-body"></tbody>
+                                </table>
+                            </div>
+                            <button class="btn-add" onclick="addTaskReplaceRow()">+ 新增替換項目</button>
+                        </div>
+
+                        <button class="save-btn" onclick="deploySchematicTask()" style="background: #9b59b6;">儲存並自動部署任務給選中機器人</button>
+                    </div>
+
+                    <!-- 全域材料站設定 -->
+                    <div class="card">
+                        <h2>全域材料站設定</h2>
+                        <div class="settings-section">
+                            <div class="form-group"><label>傳送點 (/res tp)</label><input type="text" id="st-warp" class="form-control"></div>
+                            <h3>材料位置清單</h3>
+                            <div class="table-container">
+                                <table>
+                                    <thead><tr><th>材料名稱</th><th>X</th><th>Y</th><th>Z</th><th>箱子面</th><th>按鈕面</th><th>操作</th></tr></thead>
+                                    <tbody id="st-materials-body"></tbody>
+                                </table>
+                            </div>
+                            <button class="btn-add" onclick="addMaterialRow()">+ 新增材料項目</button>
+                        </div>
+                        <button class="save-btn" onclick="saveGlobalStationConfig()">儲存全域材料站設定</button>
+                    </div>
                 </div>
-                <button class="btn-add" onclick="addMaterialRow()">+ 新增材料</button>
             </div>
-            <button class="save-btn" onclick="saveStationConfig()">儲存全域材料站設定</button>
         </div>
     </div>
 
-    <div id="accounts" class="settings-container">
-        <div class="card">
-            <h2>系統帳號管理</h2>
-            <div class="settings-section">
-                <div class="table-container">
-                    <table>
-                        <thead><tr><th>識別名稱 (ID)</th><th>帳號 (Username)</th><th>登入方式</th><th>操作</th></tr></thead>
-                        <tbody id="accounts-list-body"></tbody>
-                    </table>
+    <!-- 帳號編輯 Modal -->
+    <div id="account-modal" class="modal">
+        <div class="modal-content" style="height: auto; max-width: 400px; margin-top: 10%;">
+            <div class="modal-header">
+                <h2 id="modal-title">新增/編輯機器人</h2>
+                <button class="btn-danger" onclick="closeAccountModal()">關閉</button>
+            </div>
+            <div style="padding: 20px;">
+                <div class="form-group">
+                    <label>遊戲帳號 (Username)</label>
+                    <input type="text" id="acc-modal-user" class="form-control" placeholder="Minecraft 帳號或角色名">
                 </div>
-                <button class="btn-add" onclick="addAccountRow()">+ 新增機器人</button>
+                <div class="form-group">
+                    <label>登入方式</label>
+                    <select id="acc-modal-auth" class="form-control">
+                        <option value="microsoft">Microsoft (正版)</option>
+                        <option value="offline">Offline (離線/盜版)</option>
+                    </select>
+                </div>
+                <button class="save-btn" onclick="saveAccountFromModal()">儲存設定</button>
+                <div style="margin-top: 20px; font-size: 12px; color: #888; border-top: 1px solid #444; padding-top: 10px;">
+                    * 儲存後系統將自動重新讀取配置。
+                </div>
             </div>
-            <div class="form-group">
-                <label>中央控制面板埠號 (Web Port)</label>
-                <input type="number" id="global-webport" class="form-control" value="3000">
-            </div>
-            <button class="save-btn" onclick="saveAccounts()">儲存並重啟系統</button>
         </div>
     </div>
 
+    <!-- 檔案瀏覽器 Modal -->
     <div id="file-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header"><h2>選擇投影檔</h2><button class="btn-danger" onclick="closeFileModal()">關閉</button></div>
             <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <input type="text" id="browser-path-input" class="form-control" style="flex: 1;" placeholder="路徑...">
+                <input type="text" id="browser-path-input" class="form-control" style="flex: 1;" placeholder="輸入目錄路徑...">
                 <button onclick="loadFiles(document.getElementById('browser-path-input').value)">前往</button>
             </div>
             <div id="file-list" class="file-list"></div>
@@ -215,11 +314,30 @@
     </div>
 
     <script>
+        function showToast(message, type = 'success', duration = 3000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.style.whiteSpace = 'pre-line'; // 讓 \n 換行生效
+            toast.innerText = message;
+            container.appendChild(toast);
+            
+            // Trigger animation
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            // Remove after duration
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
         let currentBotId = localStorage.getItem('activeBotId') || "";
         let allStatus = {};
         let currentBrowserPath = localStorage.getItem('last_mapart_dir') || "";
+        window.allAccounts = [];
 
-        const socket = io({ transports: ['websocket', 'polling'], timeout: 10000 });
+        const socket = io({ transports: ['websocket', 'polling'] });
 
         socket.on('connect', () => {
             document.getElementById('socket-status').innerText = "已連線";
@@ -230,6 +348,7 @@
         socket.on('all_status', (data) => {
             allStatus = data;
             updateUI();
+            updateSidebarStatus();
         });
 
         socket.on('msa_code', (data) => {
@@ -241,70 +360,78 @@
             }
         });
 
-        function startBot(exclusive) {
-            if (currentBotId) {
-                socket.emit('start_bot', { botId: currentBotId, exclusive });
-                document.getElementById('msa-section').style.display = 'none';
-            }
-        }
-
-        function stopBot() {
-            if (currentBotId) {
-                socket.emit('stop_bot', { botId: currentBotId });
-                document.getElementById('msa-section').style.display = 'none';
-            }
-        }
-
+        // 刷新左側機器人列表
         async function refreshBotList() {
-            const res = await fetch('/api/bots');
-            const bots = await res.json();
-            const select = document.getElementById('bot-select');
-            const currentVal = select.value;
-            select.innerHTML = '<option value="">-- 選擇機器人 --</option>';
-            bots.forEach(id => {
-                const opt = document.createElement('option');
-                opt.value = id; opt.innerText = id;
-                select.appendChild(opt);
+            try {
+                const res = await fetch('/api/bots');
+                const bots = await res.json();
+                
+                const accRes = await fetch('/api/accounts');
+                window.allAccounts = await accRes.json();
+
+                const sidebar = document.getElementById('bot-sidebar');
+                sidebar.innerHTML = '';
+                
+                bots.forEach(id => {
+                    const status = allStatus[id] || { status: 'offline' };
+                    const div = document.createElement('div');
+                    div.className = `bot-item ${id === currentBotId ? 'active' : ''}`;
+                    
+                    let statusClass = (status && status.status) || 'offline';
+                    const acc = window.allAccounts.find(a => a.id === id);
+
+                    div.innerHTML = `
+                        <div class="bot-status-dot ${statusClass}" onclick="changeActiveBot('${id}')"></div>
+                        <div class="bot-info" onclick="changeActiveBot('${id}')">
+                            <span class="bot-id">${(acc && acc.username) || status.username || id}</span>
+                        </div>
+                        <div class="sidebar-actions">
+                            <button class="sidebar-btn" onclick="openAccountModal('${id}')" title="編輯帳號">⚙️</button>
+                            <button class="sidebar-btn" onclick="deleteBotAccount('${id}')" title="刪除機器人">🗑️</button>
+                        </div>
+                    `;
+                    sidebar.appendChild(div);
+                });
+
+                if (!currentBotId && bots.length > 0) changeActiveBot(bots[0]);
+                updateTaskBotList(bots);
+            } catch (e) { console.error("刷新列表失敗:", e); }
+        }
+
+        function updateSidebarStatus() {
+            document.querySelectorAll('.bot-item').forEach(item => {
+                const id = item.querySelector('.bot-id').innerText;
+                const status = allStatus[id];
+                const dot = item.querySelector('.bot-status-dot');
+                if (status && dot) dot.className = 'bot-status-dot ' + (status.status || 'offline');
             });
-            if (bots.includes(currentBotId)) select.value = currentBotId;
-            else if (bots.length > 0 && !currentBotId) changeActiveBot(bots[0]);
         }
 
         function changeActiveBot(id) {
             currentBotId = id;
             localStorage.setItem('activeBotId', id);
-            document.getElementById('bot-select').value = id;
-            document.querySelectorAll('.active-bot-id-text').forEach(el => el.innerText = id || '無');
             document.getElementById('msa-section').style.display = 'none';
-            if (document.getElementById('settings').classList.contains('active')) loadConfigs();
+            document.querySelectorAll('.bot-item').forEach(el => {
+                el.classList.toggle('active', el.querySelector('.bot-id').innerText === id);
+            });
             updateUI();
         }
 
         function updateUI() {
             const status = allStatus[currentBotId];
             const statusText = document.getElementById('bot-status-text');
-            
             if (!status) {
                 document.getElementById('display-bot-name').innerText = "請選擇機器人";
                 statusText.innerText = "未知";
                 return;
             }
-
-            document.getElementById('display-bot-name').innerText = `${currentBotId} (${status.username || '尚未連線'})`;
+            document.getElementById('display-bot-name').innerText = `${status.username || '離線'}`;
             
-            // 狀態顏色
-            const statusMap = {
-                'online': { text: '在線', color: '#2ecc71' },
-                'connecting': { text: '連線中...', color: '#f1c40f' },
-                'offline': { text: '離線', color: '#e74c3c' }
-            };
+            const statusMap = { 'online': { text: '在線', color: '#2ecc71' }, 'connecting': { text: '連線中...', color: '#f1c40f' }, 'offline': { text: '離線', color: '#e74c3c' } };
             const s = statusMap[status.status] || { text: status.status, color: '#eee' };
-            statusText.innerText = s.text;
-            statusText.style.color = s.color;
+            statusText.innerText = s.text; statusText.style.color = s.color;
 
-            if (status.status === 'online') {
-                document.getElementById('msa-section').style.display = 'none';
-            }
+            if (status.status === 'online') document.getElementById('msa-section').style.display = 'none';
 
             if (status.online && status.build_cache) {
                 const bc = status.build_cache;
@@ -317,182 +444,247 @@
 
             const invContainer = document.getElementById('inventory');
             invContainer.innerHTML = '';
-            const summary = {};
-            status.inventory.forEach(item => summary[item.name] = (summary[item.name] || 0) + item.count);
-            Object.entries(summary).sort().forEach(([name, count]) => {
-                const div = document.createElement('div');
-                div.className = 'inventory-item';
-                div.innerHTML = `<span class="item-name" title="${name}">${name}</span><span class="item-count">x${count}</span>`;
-                invContainer.appendChild(div);
-            });
-        }
-
-        function sendCommand() {
-            const input = document.getElementById('cmd-input');
-            if (input.value.trim() && currentBotId) {
-                socket.emit('command', { botId: currentBotId, cmd: input.value.trim() });
-                input.value = '';
+            if (status.inventory) {
+                const summary = {};
+                status.inventory.forEach(item => summary[item.name] = (summary[item.name] || 0) + item.count);
+                Object.entries(summary).sort().forEach(([name, count]) => {
+                    const div = document.createElement('div');
+                    div.className = 'inventory-item';
+                    div.innerHTML = `<span class="item-name" title="${name}">${name}</span><span class="item-count">x${count}</span>`;
+                    invContainer.appendChild(div);
+                });
             }
         }
-        function sendQuickCmd(cmd) { if (currentBotId) socket.emit('command', { botId: currentBotId, cmd }); }
 
         function switchTab(tabId, el) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.container, .settings-container').forEach(c => c.classList.remove('active'));
-            el.classList.add('active');
+            if (el) el.classList.add('active');
             document.getElementById(tabId).classList.add('active');
-            if (tabId === 'settings') loadConfigs();
-            if (tabId === 'accounts') loadAccounts();
+            if (tabId === 'schematic-settings') loadTaskConfigs();
         }
 
-        // Configs
-        async function loadConfigs() {
-            if (!currentBotId) return;
+        async function loadTaskConfigs() {
             try {
-                const resB = await fetch(`/api/${currentBotId}/config/bot`);
-                const cfg = await resB.json();
+                // 1. 取得當前機器人的基準設定
+                const res = await fetch(`/api/${currentBotId}/config/bot`);
+                const cfg = await res.json();
+                
                 if (cfg.schematic) {
-                    document.getElementById('bot-schematic-filename').value = cfg.schematic.filename || "";
-                    document.getElementById('bot-pos-x').value = cfg.schematic.placementPoint_x || 0;
-                    document.getElementById('bot-pos-y').value = cfg.schematic.placementPoint_y || 0;
-                    document.getElementById('bot-pos-z').value = cfg.schematic.placementPoint_z || 0;
+                    document.getElementById('task-schematic-filename').value = cfg.schematic.filename || "";
+                    document.getElementById('task-pos-x').value = cfg.schematic.placementPoint_x || 0;
+                    document.getElementById('task-pos-y').value = cfg.schematic.placementPoint_y || 100;
+                    document.getElementById('task-pos-z').value = cfg.schematic.placementPoint_z || 0;
                 }
                 if (cfg.workRegion) {
-                    document.getElementById('reg-min-x').value = cfg.workRegion.minX ?? 0;
-                    document.getElementById('reg-min-z').value = cfg.workRegion.minZ ?? 0;
-                    document.getElementById('reg-max-x').value = cfg.workRegion.maxX ?? 128;
-                    document.getElementById('reg-max-z').value = cfg.workRegion.maxZ ?? 128;
+                    document.getElementById('task-reg-min-x').value = cfg.workRegion.minX ?? 0;
+                    document.getElementById('task-reg-min-z').value = cfg.workRegion.minZ ?? 0;
+                    document.getElementById('task-reg-max-x').value = cfg.workRegion.maxX ?? 128;
+                    document.getElementById('task-reg-max-z').value = cfg.workRegion.maxZ ?? 128;
                 }
-                renderReplaceTable(cfg.replaceMaterials || []);
+                renderTaskReplaceTable(cfg.replaceMaterials || []);
 
+                // 2. 遍歷所有機器人，比對任務內容以更新勾選狀態
+                const currentFilename = cfg.schematic?.filename;
+                const currentX = cfg.schematic?.placementPoint_x;
+                const currentZ = cfg.schematic?.placementPoint_z;
+
+                const botsRes = await fetch('/api/bots');
+                const bots = await botsRes.json();
+
+                for (const id of bots) {
+                    const resBot = await fetch(`/api/${id}/config/bot`);
+                    const cfgBot = await resBot.json();
+                    
+                    const isMatched = cfgBot.schematic && 
+                                     cfgBot.schematic.filename === currentFilename && 
+                                     cfgBot.schematic.placementPoint_x === currentX &&
+                                     cfgBot.schematic.placementPoint_z === currentZ;
+
+                    const chk = document.querySelector(`.task-bot-chk[value="${id}"]`);
+                    if (chk) chk.checked = !!isMatched;
+                }
+
+                // 3. 載入材料站設定
                 const resS = await fetch(`/api/${currentBotId}/config/station`);
                 const stCfg = await resS.json();
                 document.getElementById('st-warp').value = stCfg.stationWarp || "";
                 renderMaterialsTable(stCfg.materials || []);
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("載入任務設定出錯:", e); }
         }
 
-        async function saveBotConfig() {
-            if (!currentBotId) return;
-            const cfg = {
-                schematic: {
-                    filename: document.getElementById('bot-schematic-filename').value,
-                    placementPoint_x: parseInt(document.getElementById('bot-pos-x').value),
-                    placementPoint_y: parseInt(document.getElementById('bot-pos-y').value),
-                    placementPoint_z: parseInt(document.getElementById('bot-pos-z').value)
-                },
-                workRegion: {
-                    minX: parseInt(document.getElementById('reg-min-x').value),
-                    minZ: parseInt(document.getElementById('reg-min-z').value),
-                    maxX: parseInt(document.getElementById('reg-max-x').value),
-                    maxZ: parseInt(document.getElementById('reg-max-z').value)
-                },
-                replaceMaterials: Array.from(document.querySelectorAll('#replace-materials-body tr')).map(tr => [
-                    tr.querySelector('.rep-from').value.trim(),
-                    tr.querySelector('.rep-to').value.trim()
-                ]).filter(r => r[0] && r[1])
-            };
-            const res = await fetch(`/api/${currentBotId}/config/bot`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) });
-            if ((await res.json()).success) alert('儲存成功');
-        }
-
-        async function saveStationConfig() {
-            if (!currentBotId) return;
-            const cfg = {
-                stationWarp: document.getElementById('st-warp').value,
-                materials: Array.from(document.querySelectorAll('#st-materials-body tr')).map(tr => [
-                    tr.querySelector('.mat-name').value,
-                    [
-                        parseInt(tr.querySelector('.mat-x').value),
-                        parseInt(tr.querySelector('.mat-y').value),
-                        parseInt(tr.querySelector('.mat-z').value),
-                        tr.querySelector('.mat-f').value,
-                        tr.querySelector('.mat-bf').value
-                    ]
-                ])
-            };
-            const res = await fetch(`/api/${currentBotId}/config/station`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) });
-            if ((await res.json()).success) alert('儲存成功');
-        }
-
-        // Account Management
-        async function loadAccounts() {
-            const res = await fetch('/api/accounts');
-            const bots = await res.json();
-            const tbody = document.getElementById('accounts-list-body');
-            tbody.innerHTML = '';
-            bots.forEach(acc => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><input type="text" class="form-control acc-id" value="${acc.id || ''}"></td>
-                    <td><input type="text" class="form-control acc-username" value="${acc.username || ''}"></td>
-                    <td><select class="form-control acc-auth"><option value="microsoft" ${acc.auth==='microsoft'?'selected':''}>Microsoft</option><option value="offline" ${acc.auth==='offline'?'selected':''}>Offline</option></select></td>
-                    <td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function addAccountRow() {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td><input type="text" class="form-control acc-id"></td><td><input type="text" class="form-control acc-username"></td><td><select class="form-control acc-auth"><option value="microsoft">Microsoft</option><option value="offline">Offline</option></select></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`;
-            document.getElementById('accounts-list-body').appendChild(tr);
-        }
-
-        async function saveAccounts() {
-            const bots = Array.from(document.querySelectorAll('#accounts-list-body tr')).map(tr => ({
-                id: tr.querySelector('.acc-id').value.trim(),
-                username: tr.querySelector('.acc-username').value.trim(),
-                auth: tr.querySelector('.acc-auth').value
-            })).filter(b => b.id && b.username);
-            
-            const webPort = parseInt(document.getElementById('global-webport').value);
-            
-            if (confirm('確定儲存並重啟？')) {
-                const res = await fetch('/api/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bots) });
-                if ((await res.json()).success) alert('系統重啟中...');
+        function updateTaskBotList(bots) {
+            const botListDiv = document.getElementById('task-bot-list');
+            if (botListDiv) {
+                botListDiv.innerHTML = '';
+                bots.forEach(id => {
+                    const label = document.createElement('label');
+                    label.className = 'bot-checkbox-item';
+                    label.innerHTML = `<input type="checkbox" class="task-bot-chk" value="${id}"> ${id}`;
+                    botListDiv.appendChild(label);
+                });
             }
         }
 
-        // File Browser (簡化版)
+        // --- 帳號編輯 Modal ---
+        function openAccountModal(botId = null) {
+            const modal = document.getElementById('account-modal');
+            const userInput = document.getElementById('acc-modal-user');
+            const authSelect = document.getElementById('acc-modal-auth');
+            
+            // 儲存當前正在編輯的原始 ID，以便儲存時比對（如果是編輯模式）
+            window.currentEditingBotId = botId;
+
+            if (botId) {
+                const acc = window.allAccounts.find(a => a.id === botId);
+                userInput.value = (acc && acc.username) || botId;
+                authSelect.value = (acc && acc.auth) || "microsoft";
+            } else {
+                userInput.value = ""; 
+                authSelect.value = "microsoft";
+            }
+            modal.style.display = 'block';
+        }
+        function closeAccountModal() { document.getElementById('account-modal').style.display = 'none'; }
+        async function saveAccountFromModal() {
+            const username = document.getElementById('acc-modal-user').value.trim();
+            const auth = document.getElementById('acc-modal-auth').value;
+            
+            if (!username) return showToast("請填寫帳號！", "error");
+            
+            // 使用 username 直接作為 ID
+            const id = username;
+
+            let newAccounts = [...window.allAccounts];
+            
+            if (window.currentEditingBotId) {
+                // 編輯模式：移除舊的，加入新的（或更新）
+                newAccounts = newAccounts.filter(a => a.id !== window.currentEditingBotId);
+            }
+            
+            // 檢查新的 ID 是否衝突（除非是同一個）
+            if (newAccounts.some(a => a.id === id)) {
+                return showToast("此帳號已存在！", "error");
+            }
+
+            newAccounts.push({ id, username, auth });
+
+            const res = await fetch('/api/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newAccounts) });
+            if (res.ok) { showToast("儲存成功，機器人清單已更新"); closeAccountModal(); refreshBotList(); }
+        }
+        async function deleteBotAccount(botId) {
+            const newAccounts = window.allAccounts.filter(a => a.id !== botId);
+            const res = await fetch('/api/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newAccounts) });
+            if (res.ok) { showToast(`已刪除機器人「${botId}」`); refreshBotList(); }
+        }
+
+        // --- 核心控制 ---
+        function startBot(exclusive) { if (currentBotId) socket.emit('start_bot', { botId: currentBotId, exclusive }); }
+        function stopBot() { if (currentBotId) socket.emit('stop_bot', { botId: currentBotId }); }
+        function sendCommand() { const input = document.getElementById('cmd-input'); if (input.value.trim() && currentBotId) { socket.emit('command', { botId: currentBotId, cmd: input.value.trim() }); input.value = ''; } }
+        function sendQuickCmd(cmd) { if (currentBotId) socket.emit('command', { botId: currentBotId, cmd }); }
+        function allBotsCmd(cmd) {
+            const onlineBots = Object.keys(allStatus).filter(id => allStatus[id].status === 'online');
+            if (onlineBots.length === 0) return showToast('目前無在線機器人', 'warning');
+            onlineBots.forEach(botId => socket.emit('command', { botId, cmd }));
+            showToast(`已對 ${onlineBots.length} 個在線機器人發送「${cmd}」指令`);
+        }
+
+        // --- 檔案與材料站 ---
         function openFileBrowser() { document.getElementById('file-modal').style.display = 'block'; loadFiles(currentBrowserPath); }
         function closeFileModal() { document.getElementById('file-modal').style.display = 'none'; }
         async function loadFiles(path) {
             const res = await fetch(`/api/utils/list-files?path=${encodeURIComponent(path)}`);
             const data = await res.json();
-            currentBrowserPath = data.currentDir;
-            document.getElementById('browser-path-input').value = data.currentDir;
-            const list = document.getElementById('file-list');
-            list.innerHTML = '';
-            if (data.currentDir !== data.parentDir) {
-                const div = document.createElement('div'); div.className='file-item directory'; div.innerText='📁 ..'; div.onclick=()=>loadFiles(data.parentDir); list.appendChild(div);
-            }
-            data.items.forEach(i => {
-                const div = document.createElement('div'); div.className=`file-item ${i.isDirectory?'directory':'file'}`; div.innerText=(i.isDirectory?'📁 ':'📄 ')+i.name;
-                div.onclick=()=>i.isDirectory?loadFiles(i.fullPath):selectFile(i.fullPath); list.appendChild(div);
-            });
+            currentBrowserPath = data.currentDir; document.getElementById('browser-path-input').value = data.currentDir;
+            const list = document.getElementById('file-list'); list.innerHTML = '';
+            if (data.currentDir !== data.parentDir) { const div = document.createElement('div'); div.className='file-item'; div.innerText='📁 ..'; div.onclick=()=>loadFiles(data.parentDir); list.appendChild(div); }
+            data.items.forEach(i => { const div = document.createElement('div'); div.className='file-item'; div.innerText=(i.isDirectory?'📁 ':'📄 ')+i.name; div.onclick=()=>i.isDirectory?loadFiles(i.fullPath):selectFile(i.fullPath); list.appendChild(div); });
         }
-        function selectFile(p) { document.getElementById('bot-schematic-filename').value = p; closeFileModal(); }
+        function selectFile(p) { document.getElementById('task-schematic-filename').value = p; closeFileModal(); }
+        async function saveGlobalStationConfig() {
+            try {
+                // 1. 先讀取舊設定以保留未在 GUI 顯示的欄位 (如 stationName, overfull 等)
+                const oldConfigRes = await fetch(`/api/${currentBotId}/config/station?t=${Date.now()}`, { cache: "no-store" });
+                let oldConfig = await oldConfigRes.json();
 
-        // Helpers
-        function renderReplaceTable(list) {
-            const tbody = document.getElementById('replace-materials-body'); tbody.innerHTML = '';
-            list.forEach(r => addReplaceRow(r[0], r[1]));
+                const newConfig = {
+                    ...oldConfig,
+                    stationWarp: document.getElementById('st-warp').value,
+                    // 強制存入指定的 offset 設定
+                    offset: {
+                        "N": [0, 1, -3],
+                        "S": [0, 1, 3],
+                        "W": [-3, 1, 0],
+                        "E": [3, 1, 0],
+                        "bN": [0, 1, -2],
+                        "bS": [0, 1, 2],
+                        "bW": [-2, 1, 0],
+                        "bE": [2, 1, 0]
+                    },
+                    materials: Array.from(document.querySelectorAll('#st-materials-body tr')).map(tr => [
+                        tr.querySelector('.mat-name').value,
+                        [ parseInt(tr.querySelector('.mat-x').value), parseInt(tr.querySelector('.mat-y').value), parseInt(tr.querySelector('.mat-z').value), tr.querySelector('.mat-f').value, tr.querySelector('.mat-bf').value ]
+                    ])
+                };
+                await fetch(`/api/${currentBotId}/config/station`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newConfig) });
+                showToast('材料站設定已儲存 (含自動校正 Offset)');
+            } catch (e) {
+                console.error(e);
+                showToast('儲存失敗', 'error');
+            }
         }
-        function addReplaceRow(f="", t="") {
-            const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control rep-from" value="${f}"></td><td><input type="text" class="form-control rep-to" value="${t}"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`;
-            document.getElementById('replace-materials-body').appendChild(tr);
+        function renderMaterialsTable(list) { const tbody = document.getElementById('st-materials-body'); tbody.innerHTML = ''; list.forEach(m => { const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control mat-name" value="${m[0]}"></td><td><input type="number" class="form-control mat-x" style="width:60px" value="${m[1][0]}"></td><td><input type="number" class="form-control mat-y" style="width:60px" value="${m[1][1]}"></td><td><input type="number" class="form-control mat-z" style="width:60px" value="${m[1][2]}"></td><td><input type="text" class="form-control mat-f" style="width:40px" value="${m[1][3]}"></td><td><input type="text" class="form-control mat-bf" style="width:40px" value="${m[1][4]}"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`; tbody.appendChild(tr); }); }
+        function addMaterialRow() { const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control mat-name" value="new"></td><td><input type="number" class="form-control mat-x" style="width:60px" value="0"></td><td><input type="number" class="form-control mat-y" style="width:60px" value="0"></td><td><input type="number" class="form-control mat-z" style="width:60px" value="0"></td><td><input type="text" class="form-control mat-f" style="width:40px" value="N"></td><td><input type="text" class="form-control mat-bf" style="width:40px" value="bN"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`; document.getElementById('st-materials-body').appendChild(tr); }
+        function applyTaskRegionPreset(preset) {
+            const minX = document.getElementById('task-reg-min-x');
+            const minZ = document.getElementById('task-reg-min-z');
+            const maxX = document.getElementById('task-reg-max-x');
+            const maxZ = document.getElementById('task-reg-max-z');
+            switch(preset) {
+                case 'full':  setReg(0, 0, 128, 128); break;
+                case 'q1':    setReg(0, 0, 63, 63); break;
+                case 'q2':    setReg(64, 0, 128, 63); break;
+                case 'q3':    setReg(0, 64, 63, 128); break;
+                case 'q4':    setReg(64, 64, 128, 128); break;
+                case 'left':  setReg(0, 0, 63, 128); break;
+                case 'right': setReg(64, 0, 128, 128); break;
+            }
+            function setReg(x1, z1, x2, z2) {
+                minX.value = x1; minZ.value = z1; maxX.value = x2; maxZ.value = z2;
+            }
         }
-        function renderMaterialsTable(list) {
-            const tbody = document.getElementById('st-materials-body'); tbody.innerHTML = '';
-            list.forEach(m => {
-                const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control mat-name" value="${m[0]}"></td><td><input type="number" class="coord-input mat-x" value="${m[1][0]}"></td><td><input type="number" class="coord-input mat-y" value="${m[1][1]}"></td><td><input type="number" class="coord-input mat-z" value="${m[1][2]}"></td><td><input type="text" class="coord-input mat-f" value="${m[1][3]}"></td><td><input type="text" class="coord-input mat-bf" value="${m[1][4]}"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`;
-                tbody.appendChild(tr);
-            });
-        }
-        function addMaterialRow() {
-            const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control mat-name" value="new"></td><td><input type="number" class="coord-input mat-x" value="0"></td><td><input type="number" class="coord-input mat-y" value="0"></td><td><input type="number" class="coord-input mat-z" value="0"></td><td><input type="text" class="coord-input mat-f" value="N"></td><td><input type="text" class="coord-input mat-bf" value="bN"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`;
-            document.getElementById('st-materials-body').appendChild(tr);
+
+        function renderTaskReplaceTable(list) { const tbody = document.getElementById('task-replace-body'); tbody.innerHTML = ''; list.forEach(r => addTaskReplaceRow(r[0], r[1])); }
+        function addTaskReplaceRow(f="", t="") { const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control rep-from" value="${f}"></td><td><input type="text" class="form-control rep-to" value="${t}"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`; document.getElementById('task-replace-body').appendChild(tr); }
+
+        async function deploySchematicTask() {
+            const selectedBots = Array.from(document.querySelectorAll('.task-bot-chk:checked')).map(cb => cb.value);
+            if (selectedBots.length === 0) { showToast('請至少選擇一個機器人！', 'error'); return; }
+
+            const taskData = {
+                filename: document.getElementById('task-schematic-filename').value,
+                pos: {
+                    x: parseInt(document.getElementById('task-pos-x').value),
+                    y: parseInt(document.getElementById('task-pos-y').value),
+                    z: parseInt(document.getElementById('task-pos-z').value)
+                },
+                region: {
+                    minX: parseInt(document.getElementById('task-reg-min-x').value),
+                    minZ: parseInt(document.getElementById('task-reg-min-z').value),
+                    maxX: parseInt(document.getElementById('task-reg-max-x').value),
+                    maxZ: parseInt(document.getElementById('task-reg-max-z').value)
+                },
+                replaceMaterials: Array.from(document.querySelectorAll('#task-replace-body tr')).map(tr => [
+                    tr.querySelector('.rep-from').value.trim(),
+                    tr.querySelector('.rep-to').value.trim()
+                ]).filter(r => r[0] && r[1]),
+                botIds: selectedBots
+            };
+
+            socket.emit('deploy_task', taskData);
+            const msg = `任務已部署至: ${selectedBots.join(', ')}\n區域 X: ${taskData.region.minX} ~ ${taskData.region.maxX}`;
+            showToast(msg, 'success', 5000);
         }
     </script>
 </body>

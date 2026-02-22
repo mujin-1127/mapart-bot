@@ -109,6 +109,7 @@ const mapart = {
         commandManager.registerCommand(require('./commands/mapart/copy'));
         commandManager.registerCommand(require('./commands/mapart/wrap'));
         commandManager.registerCommand(require('./commands/mapart/drop'));
+        commandManager.registerCommand(require('./commands/mapart/tp'));
         
         logger(true, 'INFO', `Mapart module initialized for bot ${bot_id}`);
     }

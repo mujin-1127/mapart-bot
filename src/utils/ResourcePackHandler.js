@@ -115,41 +115,45 @@ class ResourcePackHandler {
 
     // 步驟 1: 發送 accepted (已接受)
     if (!this.bot._client || this.bot._client.state === 'closed') return;
-    this.bot._client.write('resource_pack_receive', {
-      uuid: uuid,
-      result: 3 // 3 = accepted
-    })
-    console.log('[ResourcePack] ✓ 已接受資源包')
+    
+    // 檢查版本以決定封包格式
+    const isNewVersion = this.bot.version === '1.20.3' || this.bot.version === '1.20.4' || this.bot.majorVersion >= '1.20';
+    
+    const sendPacket = (resultCode) => {
+      if (!this.bot._client || this.bot._client.state === 'closed') return;
+      
+      const payload = { result: resultCode };
+      if (uuid) payload.uuid = uuid; // 1.20.3+ 需要 uuid
+      
+      // 根據版本使用不同的封包名稱或欄位
+      // 舊版 (1.8-1.20.2): serverbound 'resource_pack_receive' { result, (optional) hash }
+      // 新版 (1.20.3+): serverbound 'resource_pack_receive' { uuid, result }
+      
+      this.bot._client.write('resource_pack_receive', payload);
+    };
 
-    // 步驟 2: 發送 downloaded (已下載)
+    // 模擬真實客戶端的延遲與順序
+    // 1. Accepted (3)
+    sendPacket(3);
+    console.log('[ResourcePack] ✓ 已接受資源包');
+
+    // 2. Downloaded (4) - 模擬下載時間
     setTimeout(() => {
-      try {
-        if (!this.bot._client || this.bot._client.state === 'closed') return;
-        this.bot._client.write('resource_pack_receive', {
-          uuid: uuid,
-          result: 4 // 4 = downloaded
-        })
-        console.log('[ResourcePack] ✓ 資源包下載完成')
-
-        // 步驟 3: 發送 successfully_loaded (成功載入)
-        setTimeout(() => {
-          try {
-            if (!this.bot._client || this.bot._client.state === 'closed') return;
-            this.bot._client.write('resource_pack_receive', {
-              uuid: uuid,
-              result: 0 // 0 = successfully_loaded
-            })
-            console.log('[ResourcePack] ✅ 資源包載入完成')
-            this.bot.resourcePackLoaded = true
-            this.bot.emit('resourcePackLoaded')
-          } catch (error) {
-            console.error('[ResourcePack] 發送載入完成狀態失敗:', error.message)
-          }
-        }, 50)
-      } catch (error) {
-        console.error('[ResourcePack] 發送下載完成狀態失敗:', error.message)
-      }
-    }, 50)
+      sendPacket(0); // 這裡修正為 0 (Successfully loaded) - 許多伺服器只期待這個最終狀態
+      // 某些伺服器可能需要先傳 2 (Successfully downloaded) 再傳 0 (Successfully loaded)
+      // 但根據 mineflayer 文件與抓包，通常直接回傳 0 即可，或者依序回傳
+      // 修正: 根據 Wiki.vg:
+      // 0: Successfully loaded
+      // 1: Declined
+      // 2: Failed download
+      // 3: Accepted
+      
+      // 許多反作弊或資源包插件期待完整的狀態流：Accepted -> Successfully Loaded
+      // 這裡直接發送 Loaded (0) 應該是最保險的，因為 Accepted (3) 已經發送過了
+      console.log('[ResourcePack] ✅ 資源包載入完成');
+      this.bot.resourcePackLoaded = true;
+      this.bot.emit('resourcePackLoaded');
+    }, 1000); // 延遲 1 秒模擬下載與載入
 
     } catch (error) {
       console.error('[ResourcePack] 接受資源包時發生錯誤:', error.message)

@@ -96,8 +96,7 @@ async function stopAllBots() {
 }
 
 async function reloadAllBots() {
-  logger.info('[Main] 收到重新載入請求，正在重啟所有機器人...')
-  await stopAllBots()
+  logger.info('[Main] 收到重新載入請求，正在更新機器人清單...')
   
   // 重新讀取設定檔
   try {
@@ -107,9 +106,40 @@ async function reloadAllBots() {
     logger.error(`[Main] 重新載入設定檔失敗: ${err.message}`)
     return
   }
-  
-  await startAllBots()
-  logger.info('[Main] 所有機器人已重新啟動')
+
+  const newConfigs = getBotConfigs()
+  const newBotIds = new Set(newConfigs.map(c => c.id || c.username).filter(id => id))
+
+  // 1. 移除不再需要的機器人
+  for (const [botId, instance] of botInstances) {
+    if (!newBotIds.has(botId)) {
+      logger.info(`[Main] 正在移除機器人: ${botId}`)
+      if (centralWebServer) centralWebServer.unregisterBot(botId)
+      instance.stop()
+      botInstances.delete(botId)
+    }
+  }
+
+  // 2. 新增或更新機器人
+  for (const cfg of newConfigs) {
+    const botId = cfg.id || cfg.username
+    if (!botId) continue
+
+    if (botInstances.has(botId)) {
+      // 更新現有機器人的配置
+      const instance = botInstances.get(botId)
+      instance.config = cfg
+      // 注意：這裡只更新了內存中的 config 物件，若需要重新連線才能生效的設定（如 IP/Username）
+      // 則需要使用者在 GUI 手動斷開再連線，或我們在此判斷是否需要重連
+    } else {
+      // 建立新機器人
+      logger.info(`[Main] 正在新增機器人: ${botId}`)
+      const instance = new BotInstance(cfg, runtimeDataDir, configPath, centralWebServer)
+      botInstances.set(botId, instance)
+    }
+  }
+
+  logger.info('[Main] 機器人清單更新完成')
 }
 
 // 監聽重啟信號

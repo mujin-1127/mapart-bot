@@ -143,7 +143,17 @@ class BotInstance {
       const context = { source: 'web', minecraftUser: '' }
       return await commandManager.dispatch(this.bot, parts.slice(1), context)
     }
-    return false
+
+    // 3. 其他指令，直接視為 chat 指令 (自動加上 / 如果沒加的話)
+    if (this.bot) {
+      try {
+        const finalCmd = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
+        this.bot.chat(finalCmd)
+      } catch (e) {
+        this.log.error(`發送指令失敗: ${e.message}`)
+      }
+    }
+    return true
   }
 
   onMessage(jsonMsg) {
