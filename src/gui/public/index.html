@@ -418,7 +418,15 @@
                     
                     let statusClass = status.status || 'offline';
                     const acc = window.allAccounts.find(a => a.id === id);
-                    const taskName = status.build_cache?.schematic?.filename?.split(/[\\/]/).pop() || "無任務";
+                    
+                    const bc = status.build_cache;
+                    let taskName = "無任務";
+                    if (bc && bc.schematic && bc.schematic.filename) {
+                        const parts = bc.schematic.filename.split(/[\\/]/);
+                        taskName = parts[parts.length - 1];
+                    } else if (bc && bc.taskName) {
+                        taskName = bc.taskName;
+                    }
 
                     div.innerHTML = `
                         <div class="bot-status-dot ${statusClass}" onclick="changeActiveBot('${id}')"></div>
@@ -450,7 +458,14 @@
 
                 const hint = item.querySelector('.bot-task-hint');
                 if (hint) {
-                    const taskName = (status.build_cache?.schematic?.filename?.split(/[\\/]/).pop()) || "無任務";
+                    const bc = status.build_cache;
+                    let taskName = "無任務";
+                    if (bc && bc.schematic && bc.schematic.filename) {
+                        const parts = bc.schematic.filename.split(/[\\/]/);
+                        taskName = parts[parts.length - 1];
+                    } else if (bc && bc.taskName) {
+                        taskName = bc.taskName;
+                    }
                     hint.innerText = taskName;
                 }
             });
@@ -475,6 +490,7 @@
                 nameDisplay.innerText = "請選擇機器人";
                 statusBadge.className = 'status-badge badge-offline';
                 statusBadge.innerText = '未知';
+                document.getElementById('display-task-file').innerText = '無';
                 return;
             }
             
@@ -509,7 +525,15 @@
 
             if (refBC && refBC.placement_origin) {
                 const origin = refBC.placement_origin;
-                taskFile = refBC.schematic?.filename || "未知檔案";
+                
+                if (refBC.schematic && refBC.schematic.filename) {
+                    const parts = refBC.schematic.filename.split(/[\\/]/);
+                    taskFile = parts[parts.length - 1];
+                } else if (refBC.taskName) {
+                    taskFile = refBC.taskName;
+                } else {
+                    taskFile = "未知檔案";
+                }
                 
                 const participants = Object.values(allStatus).filter(botStatus => {
                     const bc = botStatus.build_cache;
@@ -574,7 +598,7 @@
                 document.getElementById('progress-text').innerText = percent + "%";
                 document.getElementById('placed-blocks').innerText = taskPlaced;
                 document.getElementById('total-blocks').innerText = taskTotal;
-                document.getElementById('display-task-file').innerText = taskFile.split(/[\\/]/).pop();
+                document.getElementById('display-task-file').innerText = taskFile;
 
                 // 使用活躍時間顯示
                 const displaySeconds = Math.floor(totalActiveMs / 1000);
