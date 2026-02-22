@@ -372,7 +372,7 @@
 
         let currentBotId = localStorage.getItem('activeBotId') || "";
         let allStatus = {};
-        let currentBrowserPath = localStorage.getItem('last_mapart_dir') || "";
+        let currentBrowserPath = "";
         window.allAccounts = [];
 
         const socket = io({ transports: ['websocket', 'polling'] });
@@ -734,7 +734,21 @@
         }
 
         // --- 檔案與材料站 ---
-        function openFileBrowser() { document.getElementById('file-modal').style.display = 'block'; loadFiles(currentBrowserPath); }
+        function openFileBrowser() {
+            const currentFile = document.getElementById('task-schematic-filename').value;
+            let pathToShow = currentBrowserPath;
+            
+            if (currentFile && currentFile.trim() !== "") {
+                // 如果有填寫路徑，嘗試提取其目錄部分 (支援 \ 與 /)
+                const lastSlash = Math.max(currentFile.lastIndexOf('/'), currentFile.lastIndexOf('\\'));
+                if (lastSlash !== -1) {
+                    pathToShow = currentFile.substring(0, lastSlash);
+                }
+            }
+            
+            document.getElementById('file-modal').style.display = 'block'; 
+            loadFiles(pathToShow); 
+        }
         function closeFileModal() { document.getElementById('file-modal').style.display = 'none'; }
         async function loadFiles(path) {
             const res = await fetch(`/api/utils/list-files?path=${encodeURIComponent(path)}`);
