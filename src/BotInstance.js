@@ -22,10 +22,28 @@ class BotInstance {
     this.log = logger.module('Main', this.id)
     this.HEART_SYMBOL = '❤'
     this.reconnectTimer = null
+    
+    // 初始化一個共享狀態，讓 WebServer 隨時可以讀取進度，即使 bot 尚未連線
+    this.sharedState = {
+        build_cache: null
+    };
+    this.loadLastBuildCache();
 
     // 初始註冊到 WebServer (即使尚未連線)
     if (this.webServer) {
       this.webServer.registerBot(this.id, this);
+    }
+  }
+
+  loadLastBuildCache() {
+    const cachePath = path.join(process.cwd(), 'config', this.id, 'build_cache.json');
+    if (fs.existsSync(cachePath)) {
+      try {
+        const data = fs.readFileSync(cachePath, 'utf8');
+        this.sharedState.build_cache = JSON.parse(data);
+      } catch (e) {
+        // 忽略讀取錯誤
+      }
     }
   }
 

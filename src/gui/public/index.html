@@ -14,28 +14,30 @@
         /* Layout */
         .main-wrapper { display: flex; flex: 1; overflow: hidden; }
         
-        /* Sidebar */
-        .sidebar { width: 240px; background: #252525; border-right: 1px solid #444; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
+        /* 側邊欄 */
+        .sidebar { width: 280px; background: #252525; border-right: 1px solid #444; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; }
         .sidebar-title { padding: 15px; color: #aaa; font-size: 0.9em; border-bottom: 1px solid #333; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
         .bot-list-container { flex: 1; overflow-y: auto; }
-        .bot-item { padding: 12px 15px; border-bottom: 1px solid #333; cursor: pointer; display: flex; align-items: center; transition: 0.2s; position: relative; }
+        .bot-item { padding: 10px 15px; border-bottom: 1px solid #333; cursor: pointer; display: flex; align-items: center; transition: 0.2s; position: relative; gap: 12px; }
         .bot-item:hover { background: #333; }
         .bot-item.active { background: #2c3e50; border-left: 4px solid #3498db; }
         
-        /* 側邊欄按鈕樣式 */
-        .sidebar-actions { display: none; margin-left: auto; gap: 8px; }
-        .bot-item:hover .sidebar-actions { display: flex; }
-        .sidebar-btn { background: none; padding: 5px; font-size: 14px; opacity: 0.6; border: none; color: white; cursor: pointer; }
-        .sidebar-btn:hover { opacity: 1; background: rgba(255,255,255,0.1); }
-        .add-bot-btn { background: #3498db; padding: 2px 8px; font-size: 12px; border-radius: 4px; border: none; color: white; cursor: pointer; }
-        .add-bot-btn:hover { background: #2980b9; }
-        .bot-status-dot { width: 10px; height: 10px; border-radius: 50%; background: #7f8c8d; margin-right: 10px; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
-        .bot-status-dot.online { background: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
-        .bot-status-dot.connecting { background: #f1c40f; }
+        .bot-status-dot { width: 12px; height: 12px; border-radius: 50%; background: #7f8c8d; box-shadow: 0 0 5px rgba(0,0,0,0.5); flex-shrink: 0; }
+        .bot-status-dot.online { background: #2ecc71; box-shadow: 0 0 8px rgba(46, 204, 113, 0.6); }
+        .bot-status-dot.connecting { background: #f1c40f; animation: blink 1s infinite; }
         .bot-status-dot.offline { background: #e74c3c; }
-        .bot-info { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-        .bot-id { font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .bot-user { font-size: 0.85em; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        @keyframes blink { 50% { opacity: 0.5; } }
+        .sidebar-actions { display: none; gap: 8px; margin-left: auto; }
+        .bot-item:hover .sidebar-actions { display: flex; }
+        .sidebar-btn { background: rgba(255,255,255,0.05); padding: 5px 8px; font-size: 14px; border-radius: 4px; border: none; color: #aaa; cursor: pointer; transition: 0.2s; }
+        .sidebar-btn:hover { color: #fff; background: rgba(255,255,255,0.15); }
+        .add-bot-btn { background: #3498db; padding: 4px 10px; font-size: 12px; border-radius: 4px; border: none; color: white; cursor: pointer; }
+        .add-bot-btn:hover { background: #2980b9; }
+
+        .bot-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+        .bot-id { font-weight: bold; color: #fff; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bot-task-hint { font-size: 0.75em; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Content Area */
         .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; background: #1a1a1a; }
@@ -79,10 +81,20 @@
         .item-count { position: absolute; bottom: 2px; right: 2px; font-size: 10px; background: rgba(0,0,0,0.7); padding: 0 3px; border-radius: 4px; }
         .item-name { font-size: 10px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-        .progress-bar { height: 30px; background: #333; border-radius: 15px; margin: 20px 0; overflow: hidden; border: 2px solid #444; }
+        .progress-bar { height: 12px; background: #333; border-radius: 6px; margin: 10px 0; overflow: hidden; border: 1px solid #444; }
         .progress-fill { height: 100%; background: linear-gradient(90deg, #3498db, #2ecc71); width: 0%; transition: width 0.5s ease-out; }
 
-        button { padding: 10px 20px; background: #3498db; border: none; color: white; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .progress-container-large { background: #2c2c2c; padding: 20px; border-radius: 12px; border-left: 5px solid #3498db; margin-bottom: 20px; }
+        .progress-stats { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+        .progress-big-percent { font-size: 32px; font-weight: bold; color: #3498db; }
+        .progress-info { color: #aaa; font-size: 0.9em; }
+
+        .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold; text-transform: uppercase; }
+        .badge-online { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
+        .badge-connecting { background: rgba(241, 196, 15, 0.2); color: #f1c40f; border: 1px solid #f1c40f; }
+        .badge-offline { background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid #e74c3c; }
+
+        button { padding: 10px 20px; background: #3498db; border: none; color: white; border-radius: 4px; cursor: pointer; transition: 0.2s; font-weight: 500; }
         button:hover { background: #2980b9; }
         button.save-btn { background: #2ecc71; width: 100%; font-size: 1.1em; font-weight: bold; margin-top: 20px; }
         button.save-btn:hover { background: #27ae60; }
@@ -143,9 +155,33 @@
             <div class="scroll-container">
                 <!-- 儀表板 (Dashboard) -->
                 <div id="dashboard" class="container active">
-                    <!-- 全體同步操作 -->
-                    <div class="card" style="grid-column: 1 / -1; margin-bottom: 20px;">
-                        <h2 style="border-bottom: 2px solid #9b59b6; color: #9b59b6;">全體同步操作 (對所有在線機器人)</h2>
+                    <!-- 1. 當前任務總覽 (大區塊) -->
+                    <div class="card" style="grid-column: 1 / -1; margin-bottom: 20px; border-top: 4px solid #3498db;">
+                        <h2 style="color: #3498db;">當前任務總覽 (地圖畫)</h2>
+                        <div id="task-overview-section" style="display: none;">
+                            <div class="progress-stats">
+                                <div>
+                                    <span id="progress-text" class="progress-big-percent">0%</span>
+                                    <span class="progress-info">( <span id="placed-blocks">0</span> / <span id="total-blocks">0</span> 方塊 )</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="color: #aaa; font-size: 0.8em; text-transform: uppercase;">建造耗時</div>
+                                    <div id="build-time-text" style="font-size: 24px; font-weight: bold; color: #f1c40f;">00:00:00</div>
+                                </div>
+                            </div>
+                            <div class="progress-bar" style="height: 24px; border-radius: 12px;"><div id="progress-fill" class="progress-fill"></div></div>
+                            <div style="margin-top: 10px; font-size: 0.9em; color: #888;">
+                                指派檔案: <span id="display-task-file" style="color: #eee;">無</span>
+                            </div>
+                        </div>
+                        <div id="no-task-placeholder" style="padding: 20px; text-align: center; color: #666; font-style: italic;">
+                            目前尚無正在執行的任務，請先部署任務。
+                        </div>
+                    </div>
+
+                    <!-- 2. 全體同步操作 -->
+                    <div class="card" style="grid-column: 1 / -1; margin-bottom: 20px; background: rgba(155, 89, 182, 0.1); border: 1px solid rgba(155, 89, 182, 0.3);">
+                        <h2 style="border-bottom: 2px solid #9b59b6; color: #9b59b6; margin-bottom: 15px;">全體同步操作</h2>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                             <button onclick="allBotsCmd('mp build')" style="background: #9b59b6;">全體開始任務</button>
                             <button onclick="allBotsCmd('mp stop')" style="background: #d35400;">全體中止任務</button>
@@ -153,12 +189,14 @@
                         </div>
                     </div>
 
-                    <!-- 左欄：單機控制 -->
+                    <!-- 3. 左欄：單機控制 -->
                     <div class="card">
-                        <h2>機器人控制 - <span id="display-bot-name">請選擇機器人</span></h2>
-                        <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                            狀態: <span id="bot-status-text" style="font-weight: bold;">離線</span>
-                            <div style="flex: 1;"></div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+                            <h2 style="border: none; margin: 0; padding: 0;">機器人控制 - <span id="display-bot-name">請選擇機器人</span></h2>
+                            <span id="bot-status-badge" class="status-badge badge-offline">離線</span>
+                        </div>
+                        
+                        <div style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
                             <button onclick="startBot(false)" style="background: #2ecc71;">啟動連線</button>
                             <button onclick="stopBot()" style="background: #e74c3c;">中斷連線</button>
                         </div>
@@ -168,27 +206,22 @@
                             <p style="font-size: 14px; margin: 10px 0;">請至 <a id="msa-url" href="#" target="_blank" style="color: #2ecc71;"></a> 輸入代碼</p>
                         </div>
 
-                        <h2>地圖畫進度</h2>
-                        <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
-                        <div class="status-item">進度: <span id="progress-text">0%</span> (<span id="placed-blocks">0</span> / <span id="total-blocks">0</span>)</div>
-                        <div class="status-item">耗時: <span id="build-time-text">00:00:00</span></div>
-                        
-                        <h2 style="margin-top: 20px;">單機控制</h2>
-                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <h2 style="margin-top: 10px; border-bottom: 1px solid #444; font-size: 1.1em; padding-bottom: 5px;">單機指令</h2>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
                             <input type="text" id="cmd-input" class="form-control" style="flex: 1;" placeholder="發送指令 (不加 .)">
                             <button onclick="sendCommand()">執行</button>
                         </div>
-                        <div style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
-                            <button onclick="sendQuickCmd('mp build')">開始任務</button>
-                            <button onclick="sendQuickCmd('mp stop')" style="background: #e67e22;">中止</button>
-                            <button onclick="sendQuickCmd('mp drop')" style="background: #95a5a6;">清空背包</button>
-                            <button onclick="sendQuickCmd('mp tp ' + (document.getElementById('st-warp').value || ''))" style="background: #8e44ad;">傳送至補給點</button>
+                        <div style="display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap;">
+                            <button onclick="sendQuickCmd('mp build')" style="font-size: 0.9em; padding: 8px 12px;">開始任務</button>
+                            <button onclick="sendQuickCmd('mp stop')" style="background: #e67e22; font-size: 0.9em; padding: 8px 12px;">中止</button>
+                            <button onclick="sendQuickCmd('mp drop')" style="background: #95a5a6; font-size: 0.9em; padding: 8px 12px;">清空背包</button>
+                            <button onclick="sendQuickCmd('mp tp ' + (document.getElementById('st-warp').value || ''))" style="background: #8e44ad; font-size: 0.9em; padding: 8px 12px;">傳送至補給點</button>
                         </div>
                     </div>
 
-                    <!-- 右欄：背包內容 -->
+                    <!-- 4. 右欄：背包內容 -->
                     <div class="card">
-                        <h2>背包內容</h2>
+                        <h2 style="border-bottom: 2px solid #2ecc71;">機器人背包內容</h2>
                         <div id="inventory" class="inventory-grid"></div>
                     </div>
                 </div>
@@ -377,18 +410,21 @@
                     const status = allStatus[id] || { status: 'offline' };
                     const div = document.createElement('div');
                     div.className = `bot-item ${id === currentBotId ? 'active' : ''}`;
+                    div.setAttribute('data-id', id);
                     
-                    let statusClass = (status && status.status) || 'offline';
+                    let statusClass = status.status || 'offline';
                     const acc = window.allAccounts.find(a => a.id === id);
+                    const taskName = status.build_cache?.schematic?.filename?.split(/[\\/]/).pop() || "無任務";
 
                     div.innerHTML = `
                         <div class="bot-status-dot ${statusClass}" onclick="changeActiveBot('${id}')"></div>
                         <div class="bot-info" onclick="changeActiveBot('${id}')">
                             <span class="bot-id">${(acc && acc.username) || status.username || id}</span>
+                            <span class="bot-task-hint">${taskName}</span>
                         </div>
                         <div class="sidebar-actions">
-                            <button class="sidebar-btn" onclick="openAccountModal('${id}')" title="編輯帳號">⚙️</button>
-                            <button class="sidebar-btn" onclick="deleteBotAccount('${id}')" title="刪除機器人">🗑️</button>
+                            <button class="sidebar-btn" onclick="openAccountModal('${id}')" title="編輯">⚙️</button>
+                            <button class="sidebar-btn" onclick="deleteBotAccount('${id}')" title="刪除">🗑️</button>
                         </div>
                     `;
                     sidebar.appendChild(div);
@@ -401,10 +437,18 @@
 
         function updateSidebarStatus() {
             document.querySelectorAll('.bot-item').forEach(item => {
-                const id = item.querySelector('.bot-id').innerText;
+                const id = item.getAttribute('data-id');
                 const status = allStatus[id];
+                if (!status) return;
+
                 const dot = item.querySelector('.bot-status-dot');
-                if (status && dot) dot.className = 'bot-status-dot ' + (status.status || 'offline');
+                if (dot) dot.className = 'bot-status-dot ' + (status.status || 'offline');
+
+                const hint = item.querySelector('.bot-task-hint');
+                if (hint) {
+                    const taskName = (status.build_cache?.schematic?.filename?.split(/[\\/]/).pop()) || "無任務";
+                    hint.innerText = taskName;
+                }
             });
         }
 
@@ -420,47 +464,103 @@
 
         function updateUI() {
             const status = allStatus[currentBotId];
-            const statusText = document.getElementById('bot-status-text');
+            const nameDisplay = document.getElementById('display-bot-name');
+            const statusBadge = document.getElementById('bot-status-badge');
+            
             if (!status) {
-                document.getElementById('display-bot-name').innerText = "請選擇機器人";
-                statusText.innerText = "未知";
+                nameDisplay.innerText = "請選擇機器人";
+                statusBadge.className = 'status-badge badge-offline';
+                statusBadge.innerText = '未知';
                 return;
             }
-            document.getElementById('display-bot-name').innerText = `${status.username || '離線'}`;
             
-            const statusMap = { 'online': { text: '在線', color: '#2ecc71' }, 'connecting': { text: '連線中...', color: '#f1c40f' }, 'offline': { text: '離線', color: '#e74c3c' } };
-            const s = statusMap[status.status] || { text: status.status, color: '#eee' };
-            statusText.innerText = s.text; statusText.style.color = s.color;
+            nameDisplay.innerText = `${status.username || currentBotId}`;
+            
+            // 更新狀態徽章
+            const statusMap = { 
+                'online': { text: '在線', class: 'badge-online' }, 
+                'connecting': { text: '連線中', class: 'badge-connecting' }, 
+                'offline': { text: '離線', class: 'badge-offline' } 
+            };
+            const s = statusMap[status.status] || { text: status.status, class: 'badge-offline' };
+            statusBadge.innerText = s.text;
+            statusBadge.className = `status-badge ${s.class}`;
 
             if (status.status === 'online') document.getElementById('msa-section').style.display = 'none';
 
-            if (status.online && status.build_cache) {
-                const bc = status.build_cache;
-                const percent = (((bc.placedBlock || 0) / (bc.totalBlocks || 1)) * 100).toFixed(1);
+            // --- 任務總覽邏輯 (聚合所有機器人) ---
+            let taskPlaced = 0;
+            let taskTotal = 0;
+            let taskStart = -1;
+            let taskEnd = -1;
+            let hasTask = false;
+            let taskFile = "無";
+
+            // 這裡我們以當前選中機器人的任務為基準，或者如果當前沒任務，就找找看有沒有其他機器人在蓋圖
+            let referenceCache = status.build_cache;
+            if (!referenceCache) {
+                // 如果選中的機器人沒任務，試著找第一個有任務的機器人作為參考
+                const someBotWithTask = Object.values(allStatus).find(b => b.build_cache && b.build_cache.placement_origin);
+                if (someBotWithTask) referenceCache = someBotWithTask.build_cache;
+            }
+
+            if (referenceCache && referenceCache.placement_origin) {
+                const origin = referenceCache.placement_origin;
+                taskFile = referenceCache.schematic?.filename || "未知檔案";
+                
+                Object.values(allStatus).forEach(botStatus => {
+                    const bc = botStatus.build_cache;
+                    if (bc && bc.placement_origin && 
+                        bc.placement_origin.x === origin.x && 
+                        bc.placement_origin.y === origin.y && 
+                        bc.placement_origin.z === origin.z) {
+                        
+                        hasTask = true;
+                        taskPlaced += (bc.placedBlock || 0);
+                        taskTotal += (bc.totalBlocks || 0);
+                        
+                        if (bc.startTime && bc.startTime !== -1) {
+                            if (taskStart === -1 || bc.startTime < taskStart) taskStart = bc.startTime;
+                        }
+                        if (bc.endTime === -1) {
+                            taskEnd = -1;
+                        } else if (taskEnd !== -1) {
+                            taskEnd = Math.max(taskEnd, bc.endTime);
+                        } else {
+                            taskEnd = bc.endTime;
+                        }
+                    }
+                });
+            }
+
+            const overviewSection = document.getElementById('task-overview-section');
+            const placeholder = document.getElementById('no-task-placeholder');
+
+            if (hasTask) {
+                overviewSection.style.display = 'block';
+                placeholder.style.display = 'none';
+
+                const percent = (((taskPlaced || 0) / (taskTotal || 1)) * 100).toFixed(1);
                 document.getElementById('progress-fill').style.width = percent + "%";
                 document.getElementById('progress-text').innerText = percent + "%";
-                document.getElementById('placed-blocks').innerText = bc.placedBlock || 0;
-                document.getElementById('total-blocks').innerText = bc.totalBlocks || 0;
-                
-                // 計時器邏輯
-                if (bc.startTime && bc.startTime !== -1) {
-                    const end = (bc.endTime && bc.endTime !== -1) ? bc.endTime : Date.now();
-                    const diff = Math.floor((end - bc.startTime) / 1000);
+                document.getElementById('placed-blocks').innerText = taskPlaced;
+                document.getElementById('total-blocks').innerText = taskTotal;
+                document.getElementById('display-task-file').innerText = taskFile.split(/[\\/]/).pop();
+
+                if (taskStart !== -1) {
+                    const now = (taskEnd !== -1) ? taskEnd : Date.now();
+                    const diff = Math.floor((now - taskStart) / 1000);
                     const h = Math.floor(diff / 3600).toString().padStart(2, '0');
                     const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
                     const s = (diff % 60).toString().padStart(2, '0');
                     document.getElementById('build-time-text').innerText = `${h}:${m}:${s}`;
-                } else {
-                    document.getElementById('build-time-text').innerText = "00:00:00";
                 }
             } else {
-                document.getElementById('build-time-text').innerText = "00:00:00";
-                document.getElementById('progress-fill').style.width = "0%";
-                document.getElementById('progress-text').innerText = "0%";
-                document.getElementById('placed-blocks').innerText = "0";
-                document.getElementById('total-blocks').innerText = "0";
+                overviewSection.style.display = 'none';
+                placeholder.style.display = 'block';
             }
 
+            // --- 背包內容 ---
             const invContainer = document.getElementById('inventory');
             invContainer.innerHTML = '';
             if (status.inventory) {
