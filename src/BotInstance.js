@@ -82,7 +82,7 @@ class BotInstance {
       // --- 偵錯區 ---
       this.bot._client.on('packet', (data, meta) => {
         // 印出登入與設定階段的封包，有助於釐清為何斷線
-        if (['login', 'configuration'].includes(this.bot._client.state)) {
+        if (this.bot && this.bot._client && ['login', 'configuration'].includes(this.bot._client.state)) {
             console.log(`[Packet][${this.id}][${this.bot._client.state}] ${meta.name}`);
         }
       });
@@ -101,6 +101,7 @@ class BotInstance {
       });
 
       this.bot._client.on('error', (err) => {
+        if (!this.bot) return; // 避免斷線後觸發報錯
         this.log.error(`低階連線錯誤 (Socket Error): ${err.message}`);
       });
       // --------------

@@ -116,7 +116,7 @@ class ResourcePackHandler {
       const packetName = 'resource_pack_receive'
 
       const sendStatus = (resultCode) => {
-        if (!this.bot._client || this.bot._client.state === 'closed') return;
+        if (!this.bot || !this.bot._client || this.bot._client.state === 'closed') return;
         
         const payload = { result: resultCode };
         if (isNewProtocol && uuid) {
