@@ -524,6 +524,8 @@
                     let maxRegionTotal = 0;
                     let extrapolatedTotal = 0;
                     let maxActiveTime = 0;
+                    let anyNotFinished = false;
+                    let maxEndTime = -1;
 
                     participants.forEach(p => {
                         const bc = p.build_cache;
@@ -547,13 +549,13 @@
                             if (taskStart === -1 || bc.startTime < taskStart) taskStart = bc.startTime;
                         }
                         if (bc.endTime === -1) {
-                            taskEnd = -1;
-                        } else if (taskEnd !== -1) {
-                            taskEnd = Math.max(taskEnd, bc.endTime);
+                            anyNotFinished = true;
                         } else {
-                            taskEnd = bc.endTime;
+                            maxEndTime = Math.max(maxEndTime, bc.endTime);
                         }
                     });
+
+                    taskEnd = anyNotFinished ? -1 : maxEndTime;
 
                     taskTotal = maxRegionTotal || extrapolatedTotal;
                     totalActiveMs = maxActiveTime;
