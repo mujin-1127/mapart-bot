@@ -497,6 +497,7 @@
             let taskTotal = 0; 
             let taskStart = -1;
             let taskEnd = -1;
+            let totalActiveMs = 0; // 改用累計活躍時間
             let hasTask = false;
             let taskFile = "無";
 
@@ -522,6 +523,7 @@
                     hasTask = true;
                     let maxRegionTotal = 0;
                     let extrapolatedTotal = 0;
+                    let maxActiveTime = 0;
 
                     participants.forEach(p => {
                         const bc = p.build_cache;
@@ -532,11 +534,14 @@
                             maxRegionTotal = bc.regionTotalBlocks;
                         }
                         
-                        // 2. 備案：利用「個人量 * 總人數」推算全域總數 (解決舊緩存或數據不全問題)
+                        // 2. 備案：利用「個人量 * 總人數」推算全域總數
                         if (bc.totalBlocks && bc.worker_count && bc.worker_count > 0) {
                             const est = bc.totalBlocks * bc.worker_count;
                             if (est > extrapolatedTotal) extrapolatedTotal = est;
                         }
+
+                        // 活躍時間聚合：取所有機器人中活躍時間最長者作為基準
+                        if (bc.activeTime > maxActiveTime) maxActiveTime = bc.activeTime;
                         
                         if (bc.startTime && bc.startTime !== -1) {
                             if (taskStart === -1 || bc.startTime < taskStart) taskStart = bc.startTime;
@@ -550,8 +555,8 @@
                         }
                     });
 
-                    // 最終分母判定：優先用精確的全域總數，其次用推算值
                     taskTotal = maxRegionTotal || extrapolatedTotal;
+                    totalActiveMs = maxActiveTime;
                 }
             }
 
@@ -569,24 +574,22 @@
                 document.getElementById('total-blocks').innerText = taskTotal;
                 document.getElementById('display-task-file').innerText = taskFile.split(/[\\/]/).pop();
 
-                if (taskStart !== -1) {
-                    const now = (taskEnd !== -1) ? taskEnd : Date.now();
-                    const diff = Math.floor((now - taskStart) / 1000);
-                    document.getElementById('build-time-text').innerText = formatTime(diff);
+                // 使用活躍時間顯示
+                const displaySeconds = Math.floor(totalActiveMs / 1000);
+                document.getElementById('build-time-text').innerText = formatTime(displaySeconds);
 
-                    // ETA 計算
-                    if (taskEnd === -1 && taskPlaced > 0) {
-                        const speed = taskPlaced / diff; // blocks per second
-                        const remaining = taskTotal - taskPlaced;
-                        if (speed > 0 && remaining > 0) {
-                            const etaSeconds = Math.floor(remaining / speed);
-                            document.getElementById('eta-text').innerText = formatTime(etaSeconds);
-                        } else {
-                            document.getElementById('eta-text').innerText = "完成中...";
-                        }
-                    } else if (taskEnd !== -1) {
-                        document.getElementById('eta-text').innerText = "已完成";
+                // ETA 計算 (基於活躍時間的速度)
+                if (taskEnd === -1 && taskPlaced > 0 && displaySeconds > 0) {
+                    const speed = taskPlaced / displaySeconds; 
+                    const remaining = taskTotal - taskPlaced;
+                    if (speed > 0 && remaining > 0) {
+                        const etaSeconds = Math.floor(remaining / speed);
+                        document.getElementById('eta-text').innerText = formatTime(etaSeconds);
+                    } else {
+                        document.getElementById('eta-text').innerText = "完成中...";
                     }
+                } else if (taskEnd !== -1) {
+                    document.getElementById('eta-text').innerText = "已完成";
                 }
             } else {
                 overviewSection.style.display = 'none';
