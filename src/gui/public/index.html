@@ -537,7 +537,7 @@
                 
                 const participants = Object.values(allStatus).filter(botStatus => {
                     const bc = botStatus.build_cache;
-                    return bc && bc.placement_origin && 
+                    return bc && botStatus.isAssigned && bc.placement_origin && 
                            bc.placement_origin.x === origin.x && 
                            bc.placement_origin.y === origin.y && 
                            bc.placement_origin.z === origin.z;
