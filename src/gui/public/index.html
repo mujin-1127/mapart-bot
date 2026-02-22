@@ -165,8 +165,12 @@
                                     <span class="progress-info">( <span id="placed-blocks">0</span> / <span id="total-blocks">0</span> 方塊 )</span>
                                 </div>
                                 <div style="text-align: right;">
-                                    <div style="color: #aaa; font-size: 0.8em; text-transform: uppercase;">建造耗時</div>
-                                    <div id="build-time-text" style="font-size: 24px; font-weight: bold; color: #f1c40f;">00:00:00</div>
+                                    <div style="color: #aaa; font-size: 0.8em; text-transform: uppercase;">建造耗時 / 預估完成</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: #f1c40f;">
+                                        <span id="build-time-text">00:00:00</span>
+                                        <span style="color: #444; margin: 0 5px;">|</span>
+                                        <span id="eta-text" style="color: #2ecc71;">--:--:--</span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="progress-bar" style="height: 24px; border-radius: 12px;"><div id="progress-fill" class="progress-fill"></div></div>
@@ -490,16 +494,14 @@
 
             // --- 任務總覽邏輯 (聚合所有機器人) ---
             let taskPlaced = 0;
-            let taskTotal = 0;
+            let taskTotal = 0; 
             let taskStart = -1;
             let taskEnd = -1;
             let hasTask = false;
             let taskFile = "無";
 
-            // 這裡我們以當前選中機器人的任務為基準，或者如果當前沒任務，就找找看有沒有其他機器人在蓋圖
             let referenceCache = status.build_cache;
             if (!referenceCache) {
-                // 如果選中的機器人沒任務，試著找第一個有任務的機器人作為參考
                 const someBotWithTask = Object.values(allStatus).find(b => b.build_cache && b.build_cache.placement_origin);
                 if (someBotWithTask) referenceCache = someBotWithTask.build_cache;
             }
@@ -507,6 +509,8 @@
             if (referenceCache && referenceCache.placement_origin) {
                 const origin = referenceCache.placement_origin;
                 taskFile = referenceCache.schematic?.filename || "未知檔案";
+                // 使用該任務的全域總數作為分母，若無則降級為累加總數
+                taskTotal = referenceCache.regionTotalBlocks || 0;
                 
                 Object.values(allStatus).forEach(botStatus => {
                     const bc = botStatus.build_cache;
@@ -517,7 +521,8 @@
                         
                         hasTask = true;
                         taskPlaced += (bc.placedBlock || 0);
-                        taskTotal += (bc.totalBlocks || 0);
+                        // 如果 reference 沒有全域總數，則嘗試從其他機器人獲取或進行累加
+                        if (taskTotal === 0) taskTotal += (bc.totalBlocks || 0);
                         
                         if (bc.startTime && bc.startTime !== -1) {
                             if (taskStart === -1 || bc.startTime < taskStart) taskStart = bc.startTime;
@@ -550,14 +555,32 @@
                 if (taskStart !== -1) {
                     const now = (taskEnd !== -1) ? taskEnd : Date.now();
                     const diff = Math.floor((now - taskStart) / 1000);
-                    const h = Math.floor(diff / 3600).toString().padStart(2, '0');
-                    const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
-                    const s = (diff % 60).toString().padStart(2, '0');
-                    document.getElementById('build-time-text').innerText = `${h}:${m}:${s}`;
+                    document.getElementById('build-time-text').innerText = formatTime(diff);
+
+                    // ETA 計算
+                    if (taskEnd === -1 && taskPlaced > 0) {
+                        const speed = taskPlaced / diff; // blocks per second
+                        const remaining = taskTotal - taskPlaced;
+                        if (speed > 0 && remaining > 0) {
+                            const etaSeconds = Math.floor(remaining / speed);
+                            document.getElementById('eta-text').innerText = formatTime(etaSeconds);
+                        } else {
+                            document.getElementById('eta-text').innerText = "完成中...";
+                        }
+                    } else if (taskEnd !== -1) {
+                        document.getElementById('eta-text').innerText = "已完成";
+                    }
                 }
             } else {
                 overviewSection.style.display = 'none';
                 placeholder.style.display = 'block';
+            }
+
+            function formatTime(seconds) {
+                const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+                const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+                const s = (seconds % 60).toString().padStart(2, '0');
+                return `${h}:${m}:${s}`;
             }
 
             // --- 背包內容 ---
