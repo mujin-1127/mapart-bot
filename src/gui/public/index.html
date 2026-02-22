@@ -500,29 +500,43 @@
             let hasTask = false;
             let taskFile = "無";
 
-            let referenceCache = status.build_cache;
-            if (!referenceCache) {
+            let refBC = status.build_cache;
+            if (!refBC) {
                 const someBotWithTask = Object.values(allStatus).find(b => b.build_cache && b.build_cache.placement_origin);
-                if (someBotWithTask) referenceCache = someBotWithTask.build_cache;
+                if (someBotWithTask) refBC = someBotWithTask.build_cache;
             }
 
-            if (referenceCache && referenceCache.placement_origin) {
-                const origin = referenceCache.placement_origin;
-                taskFile = referenceCache.schematic?.filename || "未知檔案";
-                // 使用該任務的全域總數作為分母，若無則降級為累加總數
-                taskTotal = referenceCache.regionTotalBlocks || 0;
+            if (refBC && refBC.placement_origin) {
+                const origin = refBC.placement_origin;
+                taskFile = refBC.schematic?.filename || "未知檔案";
                 
-                Object.values(allStatus).forEach(botStatus => {
+                const participants = Object.values(allStatus).filter(botStatus => {
                     const bc = botStatus.build_cache;
-                    if (bc && bc.placement_origin && 
-                        bc.placement_origin.x === origin.x && 
-                        bc.placement_origin.y === origin.y && 
-                        bc.placement_origin.z === origin.z) {
-                        
-                        hasTask = true;
+                    return bc && bc.placement_origin && 
+                           bc.placement_origin.x === origin.x && 
+                           bc.placement_origin.y === origin.y && 
+                           bc.placement_origin.z === origin.z;
+                });
+
+                if (participants.length > 0) {
+                    hasTask = true;
+                    let maxRegionTotal = 0;
+                    let extrapolatedTotal = 0;
+
+                    participants.forEach(p => {
+                        const bc = p.build_cache;
                         taskPlaced += (bc.placedBlock || 0);
-                        // 如果 reference 沒有全域總數，則嘗試從其他機器人獲取或進行累加
-                        if (taskTotal === 0) taskTotal += (bc.totalBlocks || 0);
+                        
+                        // 1. 獲取全域區域總數
+                        if (bc.regionTotalBlocks && bc.regionTotalBlocks > maxRegionTotal) {
+                            maxRegionTotal = bc.regionTotalBlocks;
+                        }
+                        
+                        // 2. 備案：利用「個人量 * 總人數」推算全域總數 (解決舊緩存或數據不全問題)
+                        if (bc.totalBlocks && bc.worker_count && bc.worker_count > 0) {
+                            const est = bc.totalBlocks * bc.worker_count;
+                            if (est > extrapolatedTotal) extrapolatedTotal = est;
+                        }
                         
                         if (bc.startTime && bc.startTime !== -1) {
                             if (taskStart === -1 || bc.startTime < taskStart) taskStart = bc.startTime;
@@ -534,8 +548,11 @@
                         } else {
                             taskEnd = bc.endTime;
                         }
-                    }
-                });
+                    });
+
+                    // 最終分母判定：優先用精確的全域總數，其次用推算值
+                    taskTotal = maxRegionTotal || extrapolatedTotal;
+                }
             }
 
             const overviewSection = document.getElementById('task-overview-section');
