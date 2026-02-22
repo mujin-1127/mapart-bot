@@ -1,4 +1,5 @@
 {
+  "stationName": "預設材料站",
   "stationWarp": "繪圖機",
   "materials": [
     ["light_blue_carpet", [100165, 65, 100072, "W", "bE"]
