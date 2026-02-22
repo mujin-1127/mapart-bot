@@ -125,6 +125,7 @@
     </style>
 </head>
 <body>
+    <audio id="notification-sound" src="data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq" preload="auto"></audio>
     <div id="toast-container"></div>
     <div class="header">
         Mineflayer Bot 中央控制面板
@@ -352,6 +353,57 @@
     </div>
 
     <script>
+        // --- 初始化音效 ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let audioUnlocked = false;
+
+        // 需要使用者互動才能解鎖 Web Audio API
+        function unlockAudio() {
+            if (!audioUnlocked) {
+                audioCtx.resume().then(() => {
+                    audioUnlocked = true;
+                    document.removeEventListener('click', unlockAudio);
+                });
+            }
+        }
+        document.addEventListener('click', unlockAudio);
+
+        function playFinishSound() {
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                
+                function playSingleDing(delayTime) {
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    
+                    const startTime = audioCtx.currentTime + delayTime;
+                    
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(880, startTime); // A5
+                    oscillator.frequency.exponentialRampToValueAtTime(1760, startTime + 0.1); // A6
+                    
+                    gainNode.gain.setValueAtTime(0, startTime);
+                    gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 1.5);
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    
+                    oscillator.start(startTime);
+                    oscillator.stop(startTime + 1.5);
+                }
+
+                // 播放三聲叮，間隔 0.3 秒
+                playSingleDing(0);
+                playSingleDing(0.3);
+                playSingleDing(0.6);
+            } catch (e) {
+                console.log("Audio not supported or disabled");
+            }
+        }
+
+        let taskWasFinished = true; // 用來追蹤任務完成狀態，避免重複發出音效
+
         function showToast(message, type = 'success', duration = 3000) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -614,8 +666,14 @@
                     } else {
                         document.getElementById('eta-text').innerText = "完成中...";
                     }
+                    taskWasFinished = false;
                 } else if (taskEnd !== -1) {
                     document.getElementById('eta-text').innerText = "已完成";
+                    if (!taskWasFinished) {
+                        playFinishSound();
+                        showToast(`任務 ${taskFile} 已完成！`, 'success', 5000);
+                        taskWasFinished = true;
+                    }
                 }
             } else {
                 overviewSection.style.display = 'none';
