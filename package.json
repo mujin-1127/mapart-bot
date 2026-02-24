@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "start": "node src/main.js",
-    "build": "node scripts/build.js"
+    "build": "node scripts/build.js",
+    "sass:watch": "sass src/gui/public/style.scss src/gui/public/style.css --watch",
+    "sass:build": "sass src/gui/public/style.scss src/gui/public/style.css"
   },
   "bin": "src/main.js",
   "pkg": {
@@ -30,6 +32,7 @@
     "vec3": "^0.1.10"
   },
   "devDependencies": {
-    "pkg": "^5.8.1"
+    "pkg": "^5.8.1",
+    "sass": "^1.97.3"
   }
 }
