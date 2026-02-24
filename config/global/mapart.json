@@ -24,5 +24,12 @@
     "mujin1127",
     "mujin260222"
   ],
-  "task_group_id": "1771796212926"
+  "task_group_id": "1771796212926",
+  "save": {
+    "warp": "繪圖機",
+    "empty_map_chest": [100165, 65, 100071, "W", "bE"],
+    "filled_map_chest": [100165, 65, 100070, "W", "bE"],
+    "center_offset_x": 64,
+    "center_offset_z": 64
+  }
 }

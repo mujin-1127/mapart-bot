@@ -85,6 +85,7 @@
                             <button onclick="allBotsCmd('mp build')" style="background: #9b59b6;">全體開始任務</button>
                             <button onclick="allBotsCmd('mp stop')" style="background: #d35400;">全體中止任務</button>
                             <button onclick="allBotsCmd('mp drop')" style="background: #7f8c8d;">全體清空背包</button>
+                            <button onclick="singleBotSave()" style="background: #3498db;">指派一名機器人執行存圖</button>
                         </div>
                     </div>
 
@@ -178,6 +179,55 @@
                         </div>
 
                         <button class="save-btn" onclick="deploySchematicTask()" style="background: #9b59b6;">儲存並自動部署任務給選中機器人</button>
+                    </div>
+
+                    <!-- 自動存圖設定 -->
+                    <div class="card">
+                        <h2>自動存圖設定 (第五階段)</h2>
+                        <div class="settings-section">
+                            <div class="form-group">
+                                <label>補給站傳送點 (Warp)</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="text" id="save-warp" class="form-control" placeholder="例如: Example_10">
+                                    <button onclick="sendQuickCmd('mp tp ' + document.getElementById('save-warp').value)" style="background: #8e44ad; white-space: nowrap;">測試傳送</button>
+                                </div>
+                            </div>
+                            <h3>存圖箱子位置清單</h3>
+                            <div class="table-container">
+                                <table>
+                                    <thead><tr><th>箱子用途</th><th>X</th><th>Y</th><th>Z</th><th>箱子面</th><th>按鈕面</th></tr></thead>
+                                    <tbody id="save-chests-body">
+                                        <tr>
+                                            <td>空白地圖箱</td>
+                                            <td><input type="number" id="save-empty-x" class="form-control mat-x" style="width:80px" value="0"></td>
+                                            <td><input type="number" id="save-empty-y" class="form-control mat-y" style="width:80px" value="0"></td>
+                                            <td><input type="number" id="save-empty-z" class="form-control mat-z" style="width:80px" value="0"></td>
+                                            <td><input type="text" id="save-empty-f" class="form-control mat-f" style="width:60px" value="N"></td>
+                                            <td><input type="text" id="save-empty-bf" class="form-control mat-bf" style="width:60px" value="bN"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>成果存放箱</td>
+                                            <td><input type="number" id="save-filled-x" class="form-control mat-x" style="width:80px" value="0"></td>
+                                            <td><input type="number" id="save-filled-y" class="form-control mat-y" style="width:80px" value="0"></td>
+                                            <td><input type="number" id="save-filled-z" class="form-control mat-z" style="width:80px" value="0"></td>
+                                            <td><input type="text" id="save-filled-f" class="form-control mat-f" style="width:60px" value="N"></td>
+                                            <td><input type="text" id="save-filled-bf" class="form-control mat-bf" style="width:60px" value="bN"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="form-grid" style="margin-top: 20px;">
+                                <div class="form-group">
+                                    <label>寫入地圖 X 偏移 (相對於放置點)</label>
+                                    <input type="number" id="save-offset-x" class="form-control" value="64">
+                                </div>
+                                <div class="form-group">
+                                    <label>寫入地圖 Z 偏移 (相對於放置點)</label>
+                                    <input type="number" id="save-offset-z" class="form-control" value="64">
+                                </div>
+                            </div>
+                        </div>
+                        <button class="save-btn" onclick="saveAutoSaveConfig()" style="background: #3498db;">儲存自動存圖設定</button>
                     </div>
 
                     <!-- 全域材料站設定 -->

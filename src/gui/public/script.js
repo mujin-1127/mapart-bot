@@ -95,6 +95,10 @@ let allStatus = {};
 let currentBrowserPath = "";
 window.allAccounts = [];
 
+// 核心邏輯
+refreshBotList();
+loadTaskConfigs(); // 頁面載入時先讀取一次設定，確保 window.lastTask 有資料
+
 const socket = io({ transports: ['websocket', 'polling'] });
 
 socket.on('connect', () => {
@@ -399,6 +403,7 @@ async function loadTaskConfigs() {
         // 1. 取得全域最新一次佈署的任務設定
         const res = await fetch(`/api/global/config/mapart`);
         const lastTask = await res.json();
+        window.lastTask = lastTask;
         
         if (lastTask && lastTask.schematic) {
             document.getElementById('task-schematic-filename').value = lastTask.schematic.filename || "";
@@ -411,6 +416,29 @@ async function loadTaskConfigs() {
             document.getElementById('task-reg-min-z').value = lastTask.workRegion.minZ ?? 0;
             document.getElementById('task-reg-max-x').value = lastTask.workRegion.maxX ?? 128;
             document.getElementById('task-reg-max-z').value = lastTask.workRegion.maxZ ?? 128;
+        }
+        if (lastTask && lastTask.save) {
+            document.getElementById('save-warp').value = lastTask.save.warp || "";
+            
+            if (lastTask.save.empty_map_chest) {
+                const c = lastTask.save.empty_map_chest;
+                document.getElementById('save-empty-x').value = c[0] ?? 0;
+                document.getElementById('save-empty-y').value = c[1] ?? 0;
+                document.getElementById('save-empty-z').value = c[2] ?? 0;
+                document.getElementById('save-empty-f').value = c[3] || "N";
+                document.getElementById('save-empty-bf').value = c[4] || "bN";
+            }
+            if (lastTask.save.filled_map_chest) {
+                const c = lastTask.save.filled_map_chest;
+                document.getElementById('save-filled-x').value = c[0] ?? 0;
+                document.getElementById('save-filled-y').value = c[1] ?? 0;
+                document.getElementById('save-filled-z').value = c[2] ?? 0;
+                document.getElementById('save-filled-f').value = c[3] || "N";
+                document.getElementById('save-filled-bf').value = c[4] || "bN";
+            }
+            
+            document.getElementById('save-offset-x').value = lastTask.save.center_offset_x ?? 64;
+            document.getElementById('save-offset-z').value = lastTask.save.center_offset_z ?? 64;
         }
         if (lastTask) {
             renderTaskReplaceTable(lastTask.replaceMaterials || []);
@@ -578,8 +606,8 @@ async function saveGlobalStationConfig() {
         showToast('儲存失敗', 'error');
     }
 }
-function renderMaterialsTable(list) { const tbody = document.getElementById('st-materials-body'); tbody.innerHTML = ''; list.forEach(m => { const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control mat-name" value="${m[0]}"></td><td><input type="number" class="form-control mat-x" style="width:60px" value="${m[1][0]}"></td><td><input type="number" class="form-control mat-y" style="width:60px" value="${m[1][1]}"></td><td><input type="number" class="form-control mat-z" style="width:60px" value="${m[1][2]}"></td><td><input type="text" class="form-control mat-f" style="width:40px" value="${m[1][3]}"></td><td><input type="text" class="form-control mat-bf" style="width:40px" value="${m[1][4]}"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`; tbody.appendChild(tr); }); }
-function addMaterialRow() { const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control mat-name" value="new"></td><td><input type="number" class="form-control mat-x" style="width:60px" value="0"></td><td><input type="number" class="form-control mat-y" style="width:60px" value="0"></td><td><input type="number" class="form-control mat-z" style="width:60px" value="0"></td><td><input type="text" class="form-control mat-f" style="width:40px" value="N"></td><td><input type="text" class="form-control mat-bf" style="width:40px" value="bN"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`; document.getElementById('st-materials-body').appendChild(tr); }
+function renderMaterialsTable(list) { const tbody = document.getElementById('st-materials-body'); tbody.innerHTML = ''; list.forEach(m => { const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control mat-name" value="${m[0]}"></td><td><input type="number" class="form-control mat-x" style="width:80px" value="${m[1][0]}"></td><td><input type="number" class="form-control mat-y" style="width:80px" value="${m[1][1]}"></td><td><input type="number" class="form-control mat-z" style="width:80px" value="${m[1][2]}"></td><td><input type="text" class="form-control mat-f" style="width:60px" value="${m[1][3]}"></td><td><input type="text" class="form-control mat-bf" style="width:60px" value="${m[1][4]}"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`; tbody.appendChild(tr); }); }
+function addMaterialRow() { const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control mat-name" value="new"></td><td><input type="number" class="form-control mat-x" style="width:80px" value="0"></td><td><input type="number" class="form-control mat-y" style="width:80px" value="0"></td><td><input type="number" class="form-control mat-z" style="width:80px" value="0"></td><td><input type="text" class="form-control mat-f" style="width:60px" value="N"></td><td><input type="text" class="form-control mat-bf" style="width:60px" value="bN"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`; document.getElementById('st-materials-body').appendChild(tr); }
 function applyTaskRegionPreset(preset) {
     const minX = document.getElementById('task-reg-min-x');
     const minZ = document.getElementById('task-reg-min-z');
@@ -636,4 +664,67 @@ async function deploySchematicTask() {
             loadTaskConfigs();
         }
     }, 300);
+}
+
+function singleBotSave() {
+    console.log('執行 singleBotSave...');
+    const assignedBots = window.lastTask?.botIds || [];
+    const onlineBots = Object.keys(allStatus).filter(id => allStatus[id].status === 'online');
+    
+    console.log('被指派機器人:', assignedBots);
+    console.log('在線機器人:', onlineBots);
+
+    // 優先從被指派的人中選一個在線的
+    const targetId = assignedBots.find(id => onlineBots.includes(id)) || onlineBots[0];
+    
+    if (!targetId) {
+        console.warn('找不到可用的機器人');
+        return showToast('目前無在線機器人可執行存圖', 'warning');
+    }
+    
+    console.log('選擇執行機器人:', targetId);
+    socket.emit('command', { botId: targetId, cmd: 'mp save' });
+    showToast(`已指派機器人「${targetId}」執行存圖任務`);
+}
+
+async function saveAutoSaveConfig() {
+    try {
+        const res = await fetch(`/api/global/config/mapart`);
+        const fullCfg = await res.json();
+
+        fullCfg.save = {
+            warp: document.getElementById('save-warp').value.trim(),
+            empty_map_chest: [
+                parseInt(document.getElementById('save-empty-x').value),
+                parseInt(document.getElementById('save-empty-y').value),
+                parseInt(document.getElementById('save-empty-z').value),
+                document.getElementById('save-empty-f').value,
+                document.getElementById('save-empty-bf').value
+            ],
+            filled_map_chest: [
+                parseInt(document.getElementById('save-filled-x').value),
+                parseInt(document.getElementById('save-filled-y').value),
+                parseInt(document.getElementById('save-filled-z').value),
+                document.getElementById('save-filled-f').value,
+                document.getElementById('save-filled-bf').value
+            ],
+            center_offset_x: parseInt(document.getElementById('save-offset-x').value),
+            center_offset_z: parseInt(document.getElementById('save-offset-z').value)
+        };
+
+        const saveRes = await fetch(`/api/global/config/mapart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fullCfg)
+        });
+
+        if (saveRes.ok) {
+            showToast('自動存圖設定已儲存');
+        } else {
+            showToast('儲存失敗', 'error');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('儲存發生錯誤', 'error');
+    }
 }

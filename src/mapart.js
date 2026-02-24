@@ -56,6 +56,13 @@ const mapart = {
                 "wrap_input_shulker": [0, 0, 0],
                 "wrap_output_shulker": [0, 0, 0],
                 "wrap_button": [0, 0, 0],
+            },
+            "save": {
+                "warp": "Example_10",
+                "empty_map_chest": [0, 0, 0],
+                "filled_map_chest": [0, 0, 0],
+                "center_offset_x": 64,
+                "center_offset_z": 64
             }
         };
 
@@ -102,6 +109,7 @@ const mapart = {
         commandManager.registerCommand(require('./commands/mapart/wrap'));
         commandManager.registerCommand(require('./commands/mapart/drop'));
         commandManager.registerCommand(require('./commands/mapart/tp'));
+        commandManager.registerCommand(require('./commands/mapart/save'));
         
         logger(true, 'INFO', `Mapart module initialized for bot ${bot_id}`);
     }

@@ -183,6 +183,7 @@ class BotInstance {
 
   async onCommandHandler(cmd) {
     const trimmed = (cmd || '').trim()
+    this.log.info(`收到指令: ${trimmed}`);
     if (!trimmed.length) return false
     if (trimmed.startsWith('.')) {
       const msg = trimmed.slice(1).trim()
