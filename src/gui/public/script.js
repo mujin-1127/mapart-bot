@@ -436,6 +436,22 @@ async function loadTaskConfigs() {
                 document.getElementById('save-filled-f').value = c[3] || "N";
                 document.getElementById('save-filled-bf').value = c[4] || "bN";
             }
+            if (lastTask.save.cartography_table) {
+                const c = lastTask.save.cartography_table;
+                document.getElementById('save-carto-x').value = c[0] ?? 0;
+                document.getElementById('save-carto-y').value = c[1] ?? 0;
+                document.getElementById('save-carto-z').value = c[2] ?? 0;
+                document.getElementById('save-carto-f').value = c[3] || "N";
+                document.getElementById('save-carto-bf').value = c[4] || "bN";
+            }
+            if (lastTask.save.glass_pane_chest) {
+                const c = lastTask.save.glass_pane_chest;
+                document.getElementById('save-glass-x').value = c[0] ?? 0;
+                document.getElementById('save-glass-y').value = c[1] ?? 0;
+                document.getElementById('save-glass-z').value = c[2] ?? 0;
+                document.getElementById('save-glass-f').value = c[3] || "N";
+                document.getElementById('save-glass-bf').value = c[4] || "bN";
+            }
             
             document.getElementById('save-offset-x').value = lastTask.save.center_offset_x ?? 64;
             document.getElementById('save-offset-z').value = lastTask.save.center_offset_z ?? 64;
@@ -707,6 +723,20 @@ async function saveAutoSaveConfig() {
                 parseInt(document.getElementById('save-filled-z').value),
                 document.getElementById('save-filled-f').value,
                 document.getElementById('save-filled-bf').value
+            ],
+            cartography_table: [
+                parseInt(document.getElementById('save-carto-x').value),
+                parseInt(document.getElementById('save-carto-y').value),
+                parseInt(document.getElementById('save-carto-z').value),
+                document.getElementById('save-carto-f').value,
+                document.getElementById('save-carto-bf').value
+            ],
+            glass_pane_chest: [
+                parseInt(document.getElementById('save-glass-x').value),
+                parseInt(document.getElementById('save-glass-y').value),
+                parseInt(document.getElementById('save-glass-z').value),
+                document.getElementById('save-glass-f').value,
+                document.getElementById('save-glass-bf').value
             ],
             center_offset_x: parseInt(document.getElementById('save-offset-x').value),
             center_offset_z: parseInt(document.getElementById('save-offset-z').value)

@@ -7,7 +7,7 @@
     ]
   ],
   "schematic": {
-    "filename": "C:\\Users\\macso\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.11 fabric\\minecraft\\schematics\\baby\\98778213_p0_master1200_1_1.nbt",
+    "filename": "C:\\Users\\macso\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.11 fabric\\minecraft\\schematics\\baby\\98778213_p0_master1200_1_2.nbt",
     "placementPoint_x": 100032,
     "placementPoint_y": 62,
     "placementPoint_z": 100031
@@ -29,6 +29,8 @@
     "warp": "繪圖機",
     "empty_map_chest": [100165, 65, 100071, "W", "bE"],
     "filled_map_chest": [100165, 65, 100070, "W", "bE"],
+    "cartography_table": [100165, 65, 100068, "W", "bE"],
+    "glass_pane_chest": [100165, 65, 100069, "W", "bE"],
     "center_offset_x": 64,
     "center_offset_z": 64
   }
