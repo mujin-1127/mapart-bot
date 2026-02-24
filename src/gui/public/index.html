@@ -158,7 +158,18 @@
                 <div id="dashboard" class="container active">
                     <!-- 1. 當前任務總覽 (大區塊) -->
                     <div class="card" style="grid-column: 1 / -1; margin-bottom: 20px; border-top: 4px solid #3498db;">
-                        <h2 style="color: #3498db;">當前任務總覽 (地圖畫)</h2>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+                            <h2 style="margin: 0; border: none; padding: 0; color: #3498db;">當前任務總覽 (地圖畫)</h2>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 0.8em;">提示音:</span>
+                                <label onclick="playFinishSound()" style="background: transparent; border: none; font-size: 1.2em; cursor: pointer;" title="試聽提示音">▶️</label>
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: #ccc; font-size: 1.2em; user-select: none;" title="開啟/關閉完成提示音">
+                                    <input type="checkbox" id="sound-toggle" checked style="display: none;" onchange="document.getElementById('sound-icon').innerText = this.checked ? '🔊' : '🔇'; localStorage.setItem('soundEnabled', this.checked);">
+                                    <span id="sound-icon">🔊</span>
+                                </label>
+                                <input type="range" id="sound-volume" min="0" max="1" step="0.05" value="0.2" style="width: 60px; height: 4px; cursor: pointer;" title="調整音量">
+                            </div>
+                        </div>
                         <div id="task-overview-section" style="display: none;">
                             <div class="progress-stats">
                                 <div>
@@ -372,31 +383,35 @@
             try {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 
+                const volInput = document.getElementById('sound-volume');
+                const maxVol = volInput ? parseFloat(volInput.value) : 0.2;
+                
                 function playSingleDing(delayTime) {
                     const oscillator = audioCtx.createOscillator();
                     const gainNode = audioCtx.createGain();
                     
                     const startTime = audioCtx.currentTime + delayTime;
                     
+                    // 使用正弦波產生清脆純淨的鈴聲
                     oscillator.type = 'sine';
-                    oscillator.frequency.setValueAtTime(880, startTime); // A5
-                    oscillator.frequency.exponentialRampToValueAtTime(1760, startTime + 0.1); // A6
+                    oscillator.frequency.setValueAtTime(1046.50, startTime); // C6 音高，不作滑音
                     
+                    // 柔和的音量包絡 ( Envelope )
                     gainNode.gain.setValueAtTime(0, startTime);
-                    gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
-                    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 1.5);
+                    gainNode.gain.linearRampToValueAtTime(maxVol, startTime + 0.01); // 快速且輕柔的起音
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.6); // 自然的餘音衰減
                     
                     oscillator.connect(gainNode);
                     gainNode.connect(audioCtx.destination);
                     
                     oscillator.start(startTime);
-                    oscillator.stop(startTime + 1.5);
+                    oscillator.stop(startTime + 0.6);
                 }
 
-                // 播放三聲叮，間隔 0.3 秒
+                // 播放三聲叮，間隔 0.25 秒讓節奏輕快不黏糊
                 playSingleDing(0);
-                playSingleDing(0.3);
-                playSingleDing(0.6);
+                playSingleDing(0.25);
+                playSingleDing(0.5);
             } catch (e) {
                 console.log("Audio not supported or disabled");
             }
@@ -423,6 +438,25 @@
         }
 
         let currentBotId = localStorage.getItem('activeBotId') || "";
+        
+        // 載入音效與音量設定
+        const savedSoundEnabled = localStorage.getItem('soundEnabled');
+        if (savedSoundEnabled !== null) {
+            const soundToggle = document.getElementById('sound-toggle');
+            if (soundToggle) {
+                soundToggle.checked = savedSoundEnabled === 'true';
+                document.getElementById('sound-icon').innerText = soundToggle.checked ? '🔊' : '🔇';
+            }
+        }
+        const savedVolume = localStorage.getItem('soundVolume');
+        if (savedVolume !== null) {
+            const volInput = document.getElementById('sound-volume');
+            if (volInput) volInput.value = savedVolume;
+        }
+        document.getElementById('sound-volume').addEventListener('input', (e) => {
+            localStorage.setItem('soundVolume', e.target.value);
+        });
+
         let allStatus = {};
         let currentBrowserPath = "";
         window.allAccounts = [];
@@ -670,7 +704,10 @@
                 } else if (taskEnd !== -1) {
                     document.getElementById('eta-text').innerText = "已完成";
                     if (!taskWasFinished) {
-                        playFinishSound();
+                        const soundEnabled = document.getElementById('sound-toggle').checked;
+                        if (soundEnabled) {
+                            playFinishSound();
+                        }
                         showToast(`任務 ${taskFile} 已完成！`, 'success', 5000);
                         taskWasFinished = true;
                     }
