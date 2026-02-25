@@ -42,14 +42,22 @@ module.exports = {
         }
         
         const stationFile = mapart_build_cfg_cache?.station || 'station.json';
-        
+        let stationConfig = null;
         try {
-            const stationConfig = await readConfig(`${process.cwd()}/config/global/${stationFile}`);
+            stationConfig = await readConfig(`${process.cwd()}/config/global/${stationFile}`);
             if (stationConfig && stationConfig.offset) {
                 mapart_build_cfg_cache.offset = stationConfig.offset;
             }
         } catch(e) {
             logger.warn(`無法讀取材料站設定檔 ${stationFile}: ${e.message}`);
+        }
+
+        // --- 第一步：傳送到材料站 (如果設定了 stationWarp) ---
+        if (stationConfig && stationConfig.stationWarp) {
+            const mcFallout = require('../../../lib/mcFallout');
+            logger.info(`正在傳送到材料站: ${stationConfig.stationWarp}...`);
+            await mcFallout.warp(bot, stationConfig.stationWarp, 5000, 3);
+            await sleep(2000); // 確保傳送後的區塊載入與穩定
         }
         
         mapart_build_cfg_cache.replaceMaterials = mapart_build_cfg_cache.replaceMaterials || [];
