@@ -113,33 +113,31 @@ module.exports = {
         }
 
         if (allBotsFinished) {
-            // 只有第一位機器人負責啟動後續流程 (存圖、清理或下一個任務)
-            if (workerIndex === 0) {
-                // 延遲一下確保全體狀態已寫入 WebServer
-                setTimeout(async () => {
-                    // 再次檢查自己是否已被停止
-                    if (checkStop(bot, logger)) return;
+            // 延遲一下確保全體狀態已寫入 WebServer
+            setTimeout(async () => {
+                // 再次檢查自己是否已被停止
+                if (checkStop(bot, logger)) return;
 
-                    // 防止重複觸發
-                    const lockKey = `autosave_lock_${mapart_global_cfg.task_group_id || 'default'}`;
-                    if (webServer && webServer.globalMapartCfg) {
-                        if (webServer.globalMapartCfg[lockKey]) return;
-                        webServer.globalMapartCfg[lockKey] = true;
-                        setTimeout(() => { delete webServer.globalMapartCfg[lockKey]; }, 60000);
-                    }
+                // 防止重複觸發 (利用全域鎖)
+                const lockKey = `autosave_lock_${mapart_global_cfg.task_group_id || 'default'}`;
+                if (webServer && webServer.globalMapartCfg) {
+                    if (webServer.globalMapartCfg[lockKey]) return;
+                    webServer.globalMapartCfg[lockKey] = true;
+                    // 60 秒後自動解鎖，避免卡死
+                    setTimeout(() => { if (webServer.globalMapartCfg) delete webServer.globalMapartCfg[lockKey]; }, 60000);
+                }
 
-                    if (mapart_global_cfg.save && mapart_global_cfg.save.autoSaveAfterBuild) {
-                        logger.info(`[AutoNext] 檢測到全體建造完成，啟動自動存圖流程...`);
-                        const cmdMgr = require('../CommandManager');
-                        cmdMgr.dispatch(bot, ["save"], { source: task.source });
-                    } else {
-                        // 無論 autoNext 是否開啟，都進入 tryTriggerNextTask 處理佇列清理
-                        logger.info(`[AutoNext] 檢測到全體建造完成，處理任務佇列...`);
-                        const { tryTriggerNextTask } = require('./clear');
-                        await tryTriggerNextTask(bot, task.source);
-                    }
-                }, 5000); 
-            }
+                if (mapart_global_cfg.save && mapart_global_cfg.save.autoSaveAfterBuild) {
+                    logger.info(`[AutoNext] 檢測到全體建造完成，啟動自動存圖流程 (執行者: ${bot_id})...`);
+                    const cmdMgr = require('../CommandManager');
+                    cmdMgr.dispatch(bot, ["save"], { source: task.source });
+                } else {
+                    // 無論 autoNext 是否開啟，都進入 tryTriggerNextTask 處理佇列清理
+                    logger.info(`[AutoNext] 檢測到全體建造完成，處理任務佇列...`);
+                    const { tryTriggerNextTask } = require('./clear');
+                    await tryTriggerNextTask(bot, task.source);
+                }
+            }, 5000);
         }
     }
 };
