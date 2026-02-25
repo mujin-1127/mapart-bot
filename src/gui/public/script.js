@@ -130,26 +130,35 @@ socket.on('task_finished', (data) => {
     showToast(`${data.taskName}: ${data.message}`, 'success', 8000);
 });
 
+// --- 新增：監聽設定更新訊號 ---
+socket.on('config_updated', (data) => {
+    if (data.type === 'mapart') {
+        console.log("檢測到任務佇列更新，正在同步...");
+        loadTaskConfigs();
+    }
+});
+
 // 刷新左側機器人列表
 async function refreshBotList() {
     try {
-        const res = await fetch('/api/bots');
-        const bots = await res.json();
-        
         const accRes = await fetch('/api/accounts');
         window.allAccounts = await accRes.json();
+        
+        const res = await fetch('/api/bots');
+        const activeBotIds = await res.json();
 
         const sidebar = document.getElementById('bot-sidebar');
         sidebar.innerHTML = '';
         
-        bots.forEach(id => {
+        // 遍歷所有帳號，而不只是啟動中的機器人
+        window.allAccounts.forEach(acc => {
+            const id = acc.id;
             const status = allStatus[id] || { status: 'offline' };
             const div = document.createElement('div');
             div.className = `bot-item ${id === currentBotId ? 'active' : ''}`;
             div.setAttribute('data-id', id);
             
             let statusClass = status.status || 'offline';
-            const acc = window.allAccounts.find(a => a.id === id);
             
             const bc = status.build_cache;
             let taskName = "無任務";
@@ -163,7 +172,7 @@ async function refreshBotList() {
             div.innerHTML = `
                 <div class="bot-status-dot ${statusClass}" onclick="changeActiveBot('${id}')"></div>
                 <div class="bot-info" onclick="changeActiveBot('${id}')">
-                    <span class="bot-id">${(acc && acc.username) || status.username || id}</span>
+                    <span class="bot-id">${acc.username || id}</span>
                     <span class="bot-task-hint">${taskName}</span>
                 </div>
                 <div class="sidebar-actions">
@@ -177,16 +186,15 @@ async function refreshBotList() {
             sidebar.appendChild(div);
         });
 
-        if (!currentBotId && bots.length > 0) changeActiveBot(bots[0]);
-        updateTaskBotList(bots);
+        if (!currentBotId && window.allAccounts.length > 0) changeActiveBot(window.allAccounts[0].id);
+        updateTaskBotList(window.allAccounts.map(a => a.id));
     } catch (e) { console.error("刷新列表失敗:", e); }
 }
 
 function updateSidebarStatus() {
     document.querySelectorAll('.bot-item').forEach(item => {
         const id = item.getAttribute('data-id');
-        const status = allStatus[id];
-        if (!status) return;
+        const status = allStatus[id] || { status: 'offline' };
 
         const statusClass = status.status || 'offline';
         const dot = item.querySelector('.bot-status-dot');
@@ -221,7 +229,7 @@ function changeActiveBot(id) {
     localStorage.setItem('activeBotId', id);
     document.getElementById('msa-section').style.display = 'none';
     document.querySelectorAll('.bot-item').forEach(el => {
-        el.classList.toggle('active', el.querySelector('.bot-id').innerText === id);
+        el.classList.toggle('active', el.getAttribute('data-id') === id);
     });
     updateUI();
 }
@@ -268,8 +276,11 @@ function updateUI() {
         if (someBotWithTask) refBC = someBotWithTask.build_cache;
     }
 
-    if (refBC && refBC.placement_origin) {
-        const origin = refBC.placement_origin;
+    const overviewSection = document.getElementById('task-overview-section');
+    const placeholder = document.getElementById('no-task-placeholder');
+
+    if (refBC && (refBC.placement_origin || refBC.schematic)) {
+        const origin = refBC.placement_origin || (refBC.schematic ? { x: refBC.schematic.placementPoint_x, y: refBC.schematic.placementPoint_y, z: refBC.schematic.placementPoint_z } : null);
         
         if (refBC.schematic && refBC.schematic.filename) {
             const parts = refBC.schematic.filename.split(/[\\/]/);
@@ -277,15 +288,16 @@ function updateUI() {
         } else if (refBC.taskName) {
             taskFile = refBC.taskName;
         } else {
-            taskFile = "未知檔案";
+            taskFile = "載入中...";
         }
         
         const participants = Object.values(allStatus).filter(botStatus => {
             const bc = botStatus.build_cache;
-            return bc && botStatus.isAssigned && bc.placement_origin && 
-                   bc.placement_origin.x === origin.x && 
-                   bc.placement_origin.y === origin.y && 
-                   bc.placement_origin.z === origin.z;
+            if (!bc || !botStatus.isAssigned || !origin) return false;
+            
+            // 優先用 placement_origin 匹配，其次用 schematic 座標
+            const p = bc.placement_origin || (bc.schematic ? { x: bc.schematic.placementPoint_x, y: bc.schematic.placementPoint_y, z: bc.schematic.placementPoint_z } : null);
+            return p && p.x === origin.x && p.y === origin.y && p.z === origin.z;
         });
 
         if (participants.length > 0) {
@@ -295,23 +307,22 @@ function updateUI() {
             let maxActiveTime = 0;
             let anyNotFinished = false;
             let maxEndTime = -1;
+            let anyStarted = false;
 
             participants.forEach(p => {
                 const bc = p.build_cache;
                 taskPlaced += (bc.placedBlock || 0);
+                if (bc.startTime !== -1) anyStarted = true;
                 
-                // 1. 獲取全域區域總數
                 if (bc.regionTotalBlocks && bc.regionTotalBlocks > maxRegionTotal) {
                     maxRegionTotal = bc.regionTotalBlocks;
                 }
                 
-                // 2. 備案：利用「個人量 * 總人數」推算全域總數
                 if (bc.totalBlocks && bc.worker_count && bc.worker_count > 0) {
                     const est = bc.totalBlocks * bc.worker_count;
                     if (est > extrapolatedTotal) extrapolatedTotal = est;
                 }
 
-                // 活躍時間聚合：取所有機器人中活躍時間最長者作為基準
                 if (bc.activeTime > maxActiveTime) maxActiveTime = bc.activeTime;
                 
                 if (bc.startTime && bc.startTime !== -1) {
@@ -325,53 +336,52 @@ function updateUI() {
             });
 
             taskEnd = anyNotFinished ? -1 : maxEndTime;
-
-            taskTotal = maxRegionTotal || extrapolatedTotal;
+            taskTotal = maxRegionTotal || extrapolatedTotal || 1;
             totalActiveMs = maxActiveTime;
+
+            overviewSection.style.display = 'block';
+            placeholder.style.display = 'none';
+
+            // 修正：只有當真的有人開始蓋且不是全員結束狀態，才計算真實百分比
+            const isFinished = participants.every(p => p.build_cache.endTime !== -1);
+            const percent = (isFinished && taskTotal > 1) ? "100.0" : (!anyStarted ? "0.0" : (((taskPlaced || 0) / taskTotal) * 100).toFixed(1));
+            
+            document.getElementById('progress-fill').style.width = percent + "%";
+            document.getElementById('progress-text').innerText = percent + "%";
+            document.getElementById('placed-blocks').innerText = (isFinished) ? taskTotal : taskPlaced;
+            document.getElementById('total-blocks').innerText = taskTotal;
+            document.getElementById('display-task-file').innerText = taskFile;
+
+            // 使用活躍時間顯示
+            const displaySeconds = Math.floor(totalActiveMs / 1000);
+            document.getElementById('build-time-text').innerText = formatTime(displaySeconds);
+
+            // ETA 計算 (基於活躍時間的速度)
+            if (taskEnd === -1 && taskPlaced > 0 && displaySeconds > 0) {
+                const speed = taskPlaced / displaySeconds; 
+                const remaining = taskTotal - taskPlaced;
+                if (speed > 0 && remaining > 0) {
+                    const etaSeconds = Math.floor(remaining / speed);
+                    document.getElementById('eta-text').innerText = formatTime(etaSeconds);
+                } else {
+                    document.getElementById('eta-text').innerText = "完成中...";
+                }
+                taskWasFinished = false;
+            } else if (taskEnd !== -1) {
+                document.getElementById('eta-text').innerText = "已完成";
+                if (!taskWasFinished) {
+                    const soundEnabled = document.getElementById('sound-toggle').checked;
+                    if (soundEnabled) {
+                        playFinishSound();
+                    }
+                    showToast(`任務 ${taskFile} 已完成！`, 'success', 5000);
+                    taskWasFinished = true;
+                }
+            }
         }
     }
 
-    const overviewSection = document.getElementById('task-overview-section');
-    const placeholder = document.getElementById('no-task-placeholder');
-
-    if (hasTask) {
-        overviewSection.style.display = 'block';
-        placeholder.style.display = 'none';
-
-        const percent = (((taskPlaced || 0) / (taskTotal || 1)) * 100).toFixed(1);
-        document.getElementById('progress-fill').style.width = percent + "%";
-        document.getElementById('progress-text').innerText = percent + "%";
-        document.getElementById('placed-blocks').innerText = taskPlaced;
-        document.getElementById('total-blocks').innerText = taskTotal;
-        document.getElementById('display-task-file').innerText = taskFile;
-
-        // 使用活躍時間顯示
-        const displaySeconds = Math.floor(totalActiveMs / 1000);
-        document.getElementById('build-time-text').innerText = formatTime(displaySeconds);
-
-        // ETA 計算 (基於活躍時間的速度)
-        if (taskEnd === -1 && taskPlaced > 0 && displaySeconds > 0) {
-            const speed = taskPlaced / displaySeconds; 
-            const remaining = taskTotal - taskPlaced;
-            if (speed > 0 && remaining > 0) {
-                const etaSeconds = Math.floor(remaining / speed);
-                document.getElementById('eta-text').innerText = formatTime(etaSeconds);
-            } else {
-                document.getElementById('eta-text').innerText = "完成中...";
-            }
-            taskWasFinished = false;
-        } else if (taskEnd !== -1) {
-            document.getElementById('eta-text').innerText = "已完成";
-            if (!taskWasFinished) {
-                const soundEnabled = document.getElementById('sound-toggle').checked;
-                if (soundEnabled) {
-                    playFinishSound();
-                }
-                showToast(`任務 ${taskFile} 已完成！`, 'success', 5000);
-                taskWasFinished = true;
-            }
-        }
-    } else {
+    if (!hasTask) {
         overviewSection.style.display = 'none';
         placeholder.style.display = 'block';
     }

@@ -1,4 +1,4 @@
-const { readConfig, saveConfig, taskreply, sleep, clearInventory } = require('../../../lib/utils');
+const { readConfig, saveConfig, taskreply, sleep, clearInventory, checkStop } = require('../../../lib/utils');
 const litematicPrinter = require('../../../lib/litematicPrinter');
 const { WebhookClient } = require('discord.js');
 const fs = require('fs');
@@ -115,26 +115,31 @@ module.exports = {
         if (allBotsFinished) {
             // 只有第一位機器人負責啟動後續流程 (存圖、清理或下一個任務)
             if (workerIndex === 0) {
-                // 防止重複觸發
-                const lockKey = `autosave_lock_${mapart_global_cfg.task_group_id || 'default'}`;
-                if (webServer && webServer.globalMapartCfg) {
-                    if (webServer.globalMapartCfg[lockKey]) return;
-                    webServer.globalMapartCfg[lockKey] = true;
-                    setTimeout(() => { delete webServer.globalMapartCfg[lockKey]; }, 60000);
-                }
+                // 延遲一下確保全體狀態已寫入 WebServer
+                setTimeout(async () => {
+                    // 再次檢查自己是否已被停止
+                    if (checkStop(bot, logger)) return;
 
-                if (mapart_global_cfg.save && mapart_global_cfg.save.autoSaveAfterBuild) {
-                    logger.info(`[AutoNext] 檢測到全體建造完成，啟動自動存圖流程...`);
-                    const cmdMgr = require('../CommandManager');
-                    setTimeout(() => cmdMgr.dispatch(bot, ["save"], { source: task.source }), 10000);
-                } else if (mapart_global_cfg.autoNext) {
-                    // 只有在開啟 autoNext 時才檢查下一個任務
-                    logger.info(`[AutoNext] 檢測到全體建造完成，檢查任務佇列...`);
-                    const { tryTriggerNextTask } = require('./clear');
-                    setTimeout(() => tryTriggerNextTask(bot, task.source), 5000);
-                } else {
-                    logger.info(`[AutoNext] 建造完成，自動下一個任務已關閉。`);
-                }
+                    // 防止重複觸發
+                    const lockKey = `autosave_lock_${mapart_global_cfg.task_group_id || 'default'}`;
+                    if (webServer && webServer.globalMapartCfg) {
+                        if (webServer.globalMapartCfg[lockKey]) return;
+                        webServer.globalMapartCfg[lockKey] = true;
+                        setTimeout(() => { delete webServer.globalMapartCfg[lockKey]; }, 60000);
+                    }
+
+                    if (mapart_global_cfg.save && mapart_global_cfg.save.autoSaveAfterBuild) {
+                        logger.info(`[AutoNext] 檢測到全體建造完成，啟動自動存圖流程...`);
+                        const cmdMgr = require('../CommandManager');
+                        cmdMgr.dispatch(bot, ["save"], { source: task.source });
+                    } else if (mapart_global_cfg.autoNext) {
+                        logger.info(`[AutoNext] 檢測到全體建造完成，檢查任務佇列...`);
+                        const { tryTriggerNextTask } = require('./clear');
+                        await tryTriggerNextTask(bot, task.source);
+                    } else {
+                        logger.info(`[AutoNext] 建造完成，自動下一個任務已關閉。`);
+                    }
+                }, 5000); 
             }
         }
     }

@@ -1,4 +1,4 @@
-const { readConfig, sleep, v, clearInventory, moveToHotbar, syncHeldItem } = require('../../../lib/utils');
+const { readConfig, sleep, v, clearInventory, moveToHotbar, syncHeldItem, checkStop } = require('../../../lib/utils');
 const { Vec3 } = require('vec3');
 const mcFallout = require('../../../lib/mcFallout');
 const pathfinder = require('../../../lib/pathfinder');
@@ -44,6 +44,7 @@ module.exports = {
 
         // --- 第 1 階段：驗證補救 ---
         logger.info("--- [第 1 階段] 開始全區域驗證與補救 ---");
+        if (checkStop(bot, logger)) return;
         
         const mapCenterX = schCfg.placementPoint_x + 64;
         const mapCenterZ = schCfg.placementPoint_z + 64;
@@ -90,6 +91,7 @@ module.exports = {
         if (missingBlocks.length > 0) {
             logger.warn(`發現 ${missingBlocks.length} 個漏蓋方塊，開始補救...`);
             for (const mb of missingBlocks) {
+                if (checkStop(bot, logger)) return;
                 await pathfinder.astarfly(bot, mb.pos.offset(0, 2, 0), null, null, null, true);
                 let current = bot.blockAt(mb.pos);
                 if (current && current.name === mb.name) continue;
@@ -142,6 +144,7 @@ module.exports = {
 
         // --- 第 2 階段：物資準備 ---
         logger.info("--- [第 2 階段] 正在前往補給站並領取物資 ---");
+        if (checkStop(bot, logger)) return;
         if (saveCfg.warp) {
             const warpOk = await mcFallout.warp(bot, saveCfg.warp, 5000, 3);
             if (!warpOk) { logger.error("傳送至補給站失敗，中斷流程"); return; }
@@ -161,6 +164,7 @@ module.exports = {
         if (!getGlassOk) { logger.error("領取玻璃片失敗，中斷流程"); return; }
 
         // --- 第 3 階段：地圖寫入 ---
+        if (checkStop(bot, logger)) return;
         const centerX = schCfg.placementPoint_x + (saveCfg.center_offset_x || 64);
         const centerZ = schCfg.placementPoint_z + (saveCfg.center_offset_z || 64);
         const centerPos = new Vec3(centerX, schCfg.placementPoint_y + 2, centerZ);
@@ -179,6 +183,7 @@ module.exports = {
 
         // --- 第 4 階段：鎖定地圖 ---
         logger.info("--- [第 4 階段] 正在前往製圖台鎖定地圖 ---");
+        if (checkStop(bot, logger)) return;
         let lockOk = false;
         const cartOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.cartography_table, async (table) => {
             const mapInInv = table.items().find(i => i.name === 'filled_map');
@@ -204,6 +209,7 @@ module.exports = {
 
         // --- 第 5 階段：存檔指令 ---
         logger.info("--- [第 5 階段] 執行 /savemap 指令 ---");
+        if (checkStop(bot, logger)) return;
         const lockedMap = bot.inventory.items().find(i => i.name === 'filled_map');
         if (!lockedMap) { logger.error("背包中找不到已鎖定的地圖，中斷流程"); return; }
 
@@ -214,6 +220,7 @@ module.exports = {
 
         // --- 第 6 階段：歸檔存入 ---
         logger.info("--- [第 6 階段] 正在存入成果箱 ---");
+        if (checkStop(bot, logger)) return;
         const finalDepositOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.filled_map_chest, async (c) => {
             await sleep(500);
             bot.updateHeldItem();
@@ -255,8 +262,8 @@ module.exports = {
             });
         } else {
             // 如果沒有開啟自動清理，則在這裡檢查是否要跳下一個任務
-            const { tryTriggerNextTask } = require('./clear');
-            await tryTriggerNextTask(bot, task.source);
+            const clearModule = require('./clear');
+            await clearModule.tryTriggerNextTask(bot, task.source);
         }
     }
 };

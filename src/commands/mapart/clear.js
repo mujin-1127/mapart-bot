@@ -1,4 +1,4 @@
-const { readConfig, sleep, v } = require('../../../lib/utils');
+const { readConfig, sleep, v, checkStop } = require('../../../lib/utils');
 const { Vec3 } = require('vec3');
 const mcFallout = require('../../../lib/mcFallout');
 const pathfinder = require('../../../lib/pathfinder');
@@ -56,6 +56,7 @@ module.exports = {
 
         // --- 第 0 階段：前往藍圖中央 (確保區塊加載與指令執行位置) ---
         logger.info("--- [第 0 階段] 前往藍圖中央 ---");
+        if (checkStop(bot, logger)) return;
         try {
             await bot.creative.flyTo(centerPos);
             await sleep(1000);
@@ -66,6 +67,7 @@ module.exports = {
 
         // --- 第 1 階段：觸發清理按鈕 ---
         logger.info("--- [第 1 階段] 前往清理按鈕並觸發 ---");
+        if (checkStop(bot, logger)) return;
         
         // 執行設定的傳送指令 (如 /home r)
         if (clearCfg.home_cmd) {
@@ -103,6 +105,7 @@ module.exports = {
 
         // --- 第 2 階段：持續監測直到清空 ---
         logger.info("--- [第 2 階段] 前往地圖中央並監測清空狀態 ---");
+        if (checkStop(bot, logger)) return;
         
         // 先飛到高空 (Y=120) 以避開可能尚未清空完成的方塊，防止被伺服器判定為卡住或墜落
         const safeHighPos = new Vec3(centerX, 120, centerZ);
@@ -144,10 +147,7 @@ module.exports = {
 
         while (!isCleared) {
             // 檢查是否中止
-            if (bot._litematicState && bot._litematicState.stop) {
-                logger.info("檢測到停止信號，終止監測。");
-                return;
-            }
+            if (checkStop(bot, logger)) return;
 
             let remainingBlocks = 0;
             for (const index of blocksToClear) {
@@ -205,9 +205,12 @@ module.exports = {
 
     async tryTriggerNextTask(bot, source) {
         const configPath = `${process.cwd()}/config/global/mapart.json`;
-        const { readConfig, saveConfig } = require('../../../lib/utils');
+        const { readConfig, saveConfig, checkStop } = require('../../../lib/utils');
         const cmdMgr = require('../CommandManager');
         
+        // 檢查是否應中止
+        if (checkStop(bot, logger)) return;
+
         try {
             let cfg = await readConfig(configPath);
             
@@ -235,6 +238,11 @@ module.exports = {
                 // 3. 儲存設定
                 await saveConfig(configPath, cfg);
                 logger.info(`[自動任務系統] 已切換至下一個任務: ${nextTask.filename}`);
+                
+                // --- 新增：通知前端設定已更新 ---
+                if (bot.centralWebServer) {
+                    bot.centralWebServer.io.emit('config_updated', { type: 'mapart' });
+                }
                 
                 // 4. 通知所有機器人開始建造 (使用全體廣播邏輯)
                 const botIds = cfg.botIds || [];
