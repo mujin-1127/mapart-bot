@@ -132,12 +132,11 @@ module.exports = {
                         logger.info(`[AutoNext] 檢測到全體建造完成，啟動自動存圖流程...`);
                         const cmdMgr = require('../CommandManager');
                         cmdMgr.dispatch(bot, ["save"], { source: task.source });
-                    } else if (mapart_global_cfg.autoNext) {
-                        logger.info(`[AutoNext] 檢測到全體建造完成，檢查任務佇列...`);
+                    } else {
+                        // 無論 autoNext 是否開啟，都進入 tryTriggerNextTask 處理佇列清理
+                        logger.info(`[AutoNext] 檢測到全體建造完成，處理任務佇列...`);
                         const { tryTriggerNextTask } = require('./clear');
                         await tryTriggerNextTask(bot, task.source);
-                    } else {
-                        logger.info(`[AutoNext] 建造完成，自動下一個任務已關閉。`);
                     }
                 }, 5000); 
             }
