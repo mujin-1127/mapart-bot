@@ -348,13 +348,36 @@ module.exports = {
 
         // --- 第 7 階段：自動清理 (選用) ---
         if (saveCfg.autoClearAfterSave) {
-            logger.info("檢測到『存圖完後自動清理』已開啟，正在啟動清理流程...");
+            logger.info("檢測到『存圖完後自動清理』已開啟，正在協調清理任務...");
             const commandManager = require('../CommandManager');
+            const botIds = cfg.botIds || [];
+            const leaderId = botIds[0];
+            
             // 延遲一下確保上一階段完全結束
             await sleep(3000); 
-            commandManager.dispatch(bot, ['clear'], { source: 'auto' }).catch(err => {
-                logger.error(`自動啟動清理流程失敗: ${err.message}`);
-            });
+
+            if (bot_id === leaderId) {
+                // 自己就是領頭羊，直接執行
+                commandManager.dispatch(bot, ['clear'], { source: 'auto' }).catch(err => {
+                    logger.error(`自動啟動清理流程失敗: ${err.message}`);
+                });
+            } else {
+                // 自己不是領頭羊，轉派給領頭羊
+                const webServer = bot.centralWebServer;
+                if (webServer) {
+                    const leaderInstance = webServer.botInstances.get(leaderId);
+                    if (leaderInstance && leaderInstance.bot && leaderInstance.bot.entity) {
+                        logger.info(`正在轉派清理任務給第一順位機器人: ${leaderId}`);
+                        commandManager.dispatch(leaderInstance.bot, ['clear'], { source: 'auto' }).catch(err => {
+                            logger.error(`轉派清理任務給 ${leaderId} 失敗: ${err.message}`);
+                        });
+                    } else {
+                        logger.error(`無法轉派清理任務：第一順位機器人 ${leaderId} 不在線上。`);
+                        // 備案：如果領頭羊不在線，則由自己代為嘗試執行 (雖然可能失敗)
+                        commandManager.dispatch(bot, ['clear'], { source: 'auto' }).catch(e=>{});
+                    }
+                }
+            }
         } else {
             // 如果沒有開啟自動清理，則在這裡檢查是否要跳下一個任務
             const clearModule = require('./clear');

@@ -43,6 +43,16 @@ module.exports = {
             return;
         }
 
+        // 動態計算 worker_id
+        const botIds = cfg.botIds || [];
+        const workerIndex = botIds.indexOf(bot_id);
+        
+        // 嚴格檢查是否為第一順位機器人
+        if (workerIndex !== 0) {
+            logger.warn(`機器人 (${bot_id}) 不是第一順位，跳過清理任務。將由第一順位機器人負責。`);
+            return;
+        }
+
         // 取得全域鎖，確保同時只有一位機器人在清圖
         const webServer = bot.centralWebServer;
         const lockKey = `clear_lock_${cfg.task_group_id || 'default'}`;
