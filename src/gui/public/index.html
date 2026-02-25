@@ -164,9 +164,7 @@
                         <h2>2. 指派執行機器人</h2>
                         <div class="settings-section">
                             <p style="font-size: 0.9em; color: #aaa; margin-top: 0;">系統將自動平分 128x128 區域給所選的在線機器人。</p>
-                            <div id="task-bot-list" class="bot-checkbox-list">
-                                <!-- 動態載入機器人勾選框 -->
-                            </div>
+                            <div class="bot-checkbox-list" id="task-bot-list"></div>
                         </div>
 
                         <h2>3. 額外設定 (替換方塊)</h2>
@@ -179,8 +177,6 @@
                             </div>
                             <button class="btn-add" onclick="addTaskReplaceRow()">+ 新增替換項目</button>
                         </div>
-
-                        <button class="save-btn" onclick="deploySchematicTask()" style="background: #9b59b6;">儲存並自動部署任務給選中機器人</button>
                     </div>
 
                     <!-- 自動存圖設定 -->
@@ -255,7 +251,6 @@
                                 <span style="font-weight: bold; color: #e74c3c;">存圖完後自動清理 (由第一位機器人執行)</span>
                             </label>
                         </div>
-                        <button class="save-btn" onclick="saveAutoSaveConfig()" style="background: #3498db;">儲存自動存圖設定</button>
                     </div>
 
                     <!-- 自動清理設定 -->
@@ -292,7 +287,6 @@
                                 </div>
                             </div>
                         </div>
-                        <button class="save-btn" onclick="saveClearConfig()" style="background: #e74c3c;">儲存自動清理設定</button>
                     </div>
 
                     <!-- 全域材料站設定 -->
@@ -309,8 +303,10 @@
                             </div>
                             <button class="btn-add" onclick="addMaterialRow()">+ 新增材料項目</button>
                         </div>
-                        <button class="save-btn" onclick="saveGlobalStationConfig()">儲存全域材料站設定</button>
                     </div>
+                    
+                    <!-- 浮動儲存按鈕 -->
+                    <button class="save-btn floating-save-btn" onclick="saveAllSettings()" style="background: #27ae60;">儲存所有設定並同步部署</button>
                 </div>
             </div>
         </div>

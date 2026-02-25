@@ -465,6 +465,15 @@ button.save-btn {
 button.save-btn:hover {
   background: #27ae60;
 }
+.floating-save-btn {
+  position: sticky;
+  bottom: 20px;
+  z-index: 100;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  margin-top: 10px;
+  margin-bottom: 20px;
+}
 button.btn-danger {
   background: #e74c3c;
   padding: 5px 10px;
