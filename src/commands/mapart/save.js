@@ -141,9 +141,6 @@ module.exports = {
         
         for (let i = 0; i < targetSch.Metadata.TotalVolume; i++) {
             const rel = targetSch.vec3(i);
-            if (rel.x < cfg.workRegion.minX || rel.x > cfg.workRegion.maxX ||
-                rel.z < cfg.workRegion.minZ || rel.z > cfg.workRegion.maxZ) continue;
-
             const expectedPid = targetSch.getBlockPIDByIndex(i);
             const expectedName = targetSch.palette[expectedPid].Name;
             if (["air", "cave_air"].includes(expectedName)) continue;
