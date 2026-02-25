@@ -13,8 +13,12 @@ function unlockAudio() {
 }
 document.addEventListener('click', unlockAudio);
 
+let lastSoundTime = 0;
 function playFinishSound() {
     try {
+        if (Date.now() - lastSoundTime < 1000) return; // 1秒內不重複播放
+        lastSoundTime = Date.now();
+
         if (audioCtx.state === 'suspended') audioCtx.resume();
         
         const volInput = document.getElementById('sound-volume');
@@ -124,10 +128,23 @@ socket.on('msa_code', (data) => {
 });
 
 socket.on('task_finished', (data) => {
+    showToast(`${data.taskName}: ${data.message}`, 'success', 8000);
+});
+
+// 所有任務完成
+socket.on('all_tasks_finished', (data) => {
     if (document.getElementById('sound-toggle').checked) {
         playFinishSound();
     }
-    showToast(`${data.taskName}: ${data.message}`, 'success', 8000);
+    showToast(`🎉 ${data.message}`, 'success', 10000);
+});
+
+// 任務被中斷
+socket.on('task_interrupted', (data) => {
+    if (document.getElementById('sound-toggle').checked) {
+        playFinishSound();
+    }
+    showToast(`⚠️ ${data.message}`, 'warning', 8000);
 });
 
 // --- 新增：監聽設定更新訊號 ---
@@ -370,10 +387,6 @@ function updateUI() {
             } else if (taskEnd !== -1) {
                 document.getElementById('eta-text').innerText = "已完成";
                 if (!taskWasFinished) {
-                    const soundEnabled = document.getElementById('sound-toggle').checked;
-                    if (soundEnabled) {
-                        playFinishSound();
-                    }
                     showToast(`任務 ${taskFile} 已完成！`, 'success', 5000);
                     taskWasFinished = true;
                 }

@@ -214,12 +214,34 @@ module.exports = {
         try {
             let cfg = await readConfig(configPath);
             
-            // 檢查開關是否存在且為開啟狀態
+            // 情況 A：佇列中只剩目前這一個任務 (不論 autoNext 是否開啟，都代表全部結束)
+            if (cfg.queue && cfg.queue.length === 1) {
+                cfg.queue = []; // 清空佇列
+                cfg.schematic = null;
+                await saveConfig(configPath, cfg);
+                logger.info("--- [自動任務系統] 佇列中所有任務已完成！ ---");
+                
+                // 通知前端：所有任務已完成 (觸發提示音)
+                if (bot.centralWebServer) {
+                    bot.centralWebServer.io.emit('all_tasks_finished', {
+                        message: "所有佇列任務已完成！"
+                    });
+                }
+                
+                // 通知前端設定已更新
+                if (bot.centralWebServer) {
+                    bot.centralWebServer.io.emit('config_updated', { type: 'mapart' });
+                }
+                return;
+            }
+
+            // 情況 B：佇列中還有任務，但自動執行開關關閉
             if (!cfg.autoNext) {
                 logger.info("[自動任務系統] 自動執行下一個任務已關閉，停止於此。");
                 return;
             }
 
+            // 情況 C：還有剩餘任務且自動執行開啟
             if (cfg.queue && cfg.queue.length > 1) {
                 logger.info(`--- [自動任務系統] 檢測到佇列中有剩餘任務，正在切換 ---`);
                 
@@ -239,12 +261,12 @@ module.exports = {
                 await saveConfig(configPath, cfg);
                 logger.info(`[自動任務系統] 已切換至下一個任務: ${nextTask.filename}`);
                 
-                // --- 新增：通知前端設定已更新 ---
+                // 通知前端：設定已更新
                 if (bot.centralWebServer) {
                     bot.centralWebServer.io.emit('config_updated', { type: 'mapart' });
                 }
                 
-                // 4. 通知所有機器人開始建造 (使用全體廣播邏輯)
+                // 4. 通知所有機器人開始建造
                 const botIds = cfg.botIds || [];
                 const webServer = bot.centralWebServer;
                 
@@ -259,14 +281,8 @@ module.exports = {
                         }
                     }
                 } else {
-                    // 若無中央伺服器，則自己開始
                     await cmdMgr.dispatch(bot, ["build"], { source: source });
                 }
-            } else if (cfg.queue && cfg.queue.length === 1) {
-                // 如果只剩一個，代表最後一個任務也完成了
-                cfg.queue = []; // 清空佇列
-                await saveConfig(configPath, cfg);
-                logger.info("--- [自動任務系統] 佇列中所有任務已完成！ ---");
             }
         } catch (e) {
             logger.error(`[自動任務系統] 處理下一個任務失敗: ${e.message}`);
