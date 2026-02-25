@@ -236,26 +236,68 @@ module.exports = {
         if (checkStop(bot, logger)) return;
         let lockOk = false;
         const cartOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.cartography_table, async (table) => {
-            const mapInInv = table.items().find(i => i.name === 'filled_map');
-            const glassInInv = table.items().find(i => i.name === 'glass_pane');
-            if (!mapInInv || !glassInInv) return false;
+            // 製圖台視窗：0=地圖, 1=材料, 2=輸出, 3-38=背包
+            const findItem = (name) => table.items().find(i => i.name === name && i.slot >= 3);
             
+            let mapInInv, glassInInv;
+            
+            // 增加重試尋找物品，避免視窗剛開啟時同步過慢
+            for (let i = 0; i < 5; i++) {
+                mapInInv = findItem('filled_map');
+                glassInInv = findItem('glass_pane');
+                if (mapInInv && glassInInv) break;
+                await sleep(500);
+                bot.updateHeldItem(); // 有助於強制刷新部分伺服器狀態
+            }
+            
+            if (!mapInInv || !glassInInv) {
+                logger.error(`製圖台開啟後找不到物品: 地圖=${!!mapInInv}, 玻璃=${!!glassInInv}`);
+                return false;
+            }
+
+            // 1. 放入地圖 (Slot 0)
+            logger.info("正在放入地圖到製圖台...");
             await bot.clickWindow(mapInInv.slot, 0, 0);
+            await sleep(500); // 增加點擊間隔
             await bot.clickWindow(0, 0, 0);
+            await sleep(800);
+
+            // 2. 放入玻璃片 (Slot 1)
+            glassInInv = findItem('glass_pane');
+            if (!glassInInv) { logger.error("放入地圖後找不到玻璃片"); return false; }
+            logger.info("正在放入玻璃片到製圖台...");
             await bot.clickWindow(glassInInv.slot, 0, 0);
+            await sleep(500);
             await bot.clickWindow(1, 0, 0);
-            await sleep(1000);
-            
+            await sleep(800);
+
+            // 3. 等待產出結果 (Slot 2)
+            logger.info("等待地圖鎖定產出...");
+            for (let i = 0; i < 10; i++) {
+                if (table.slots[2]) break;
+                await sleep(500);
+                // 有些伺服器需要點擊一下或是重新同步
+                if (i % 3 === 2) {
+                    logger.info("嘗試重新同步製圖台狀態...");
+                    bot.updateHeldItem();
+                }
+            }
+
             if (table.slots[2]) {
+                logger.info("地圖已鎖定，正在取出成果...");
                 await bot.clickWindow(2, 0, 0);
+                await sleep(300);
                 const emptySlot = table.firstEmptySlotRange(3, 38);
                 await bot.clickWindow(emptySlot || 3, 0, 0);
+                await sleep(500);
                 lockOk = true;
                 return true;
+            } else {
+                logger.error("製圖台未產生鎖定地圖 (Slot 2 為空)");
+                return false;
             }
-            return false;
         });
-        if (!cartOk || !lockOk) { logger.error("鎖定地圖失敗，中斷流程"); return; }
+        if (!cartOk || !lockOk) { logger.error("鎖定地圖失敗 (製圖台操作異常)，中斷流程"); return; }
 
         // --- 第 5 階段：存檔指令 ---
         setStatus("正在執行 /savemap 指令...");
