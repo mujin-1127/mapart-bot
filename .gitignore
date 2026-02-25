@@ -6,3 +6,4 @@
 config/*
 !config/global/
 !config/global/**
+config/global/mapart.json
