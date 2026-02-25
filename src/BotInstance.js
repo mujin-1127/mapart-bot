@@ -69,6 +69,12 @@ class BotInstance {
   async connect() {
     if (this.bot) return;
     
+    // 如果有正在等待的重連，取消它
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     this.log.info('正在嘗試連線至伺服器...');
     this.status = 'connecting';
     const opts = this.buildBotOptions()
@@ -134,7 +140,16 @@ class BotInstance {
 
       this.bot.on('message', (jsonMsg) => this.onMessage(jsonMsg))
       this.bot.on('death', () => this.onDeath())
-      this.bot.on('kicked', (reason) => this.log.warn(`被伺服器踢出: ${reason}`))
+      this.bot.on('kicked', (reason) => {
+        const reasonStr = typeof reason === 'object' ? JSON.stringify(reason) : String(reason);
+        this.log.warn(`被伺服器踢出: ${reasonStr}`);
+        
+        // 核心修正：如果是因为重複連線被踢，停止自動重連
+        if (reasonStr.includes('已經連線') || reasonStr.includes('Already logged in') || reasonStr.includes('Already connected')) {
+          this.log.error('檢測到重複連線衝突，停止自動重連流程。');
+          this.status = 'offline';
+        }
+      })
       this.bot.on('error', (err) => this.log.error(`連線錯誤: ${err.message}`))
       this.bot.on('end', (reason) => this.onEnd(reason))
     } catch (e) {
