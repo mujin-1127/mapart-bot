@@ -243,5 +243,16 @@ module.exports = {
         if (!finalDepositOk) { logger.error("最後存入成果箱失敗！"); return; }
 
         logger.info("✅ 自動存圖流程已全部嚴謹完成！");
+
+        // --- 第 7 階段：自動清理 (選用) ---
+        if (saveCfg.autoClearAfterSave) {
+            logger.info("檢測到『存圖完後自動清理』已開啟，正在啟動清理流程...");
+            const commandManager = require('../CommandManager');
+            // 延遲一下確保上一階段完全結束
+            await sleep(3000); 
+            commandManager.dispatch(bot, ['clear'], { source: 'auto' }).catch(err => {
+                logger.error(`自動啟動清理流程失敗: ${err.message}`);
+            });
+        }
     }
 };

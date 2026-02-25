@@ -31,13 +31,6 @@ module.exports = {
         litematicPrinter.initBot(bot);
         bot._litematicState.stop = false; // 重置停止狀態
 
-        // 確保機器人在創造模式
-        if (bot.game.gameMode !== 'creative') {
-            logger.warn("機器人不在創造模式，嘗試切換...");
-            bot.chat('/gamemode creative');
-            await sleep(1000);
-        }
-
         let cfg = await readConfig(configPath);
         if (!cfg.clear) {
             logger.error("缺少 'clear' 設定，請檢查 mapart.json");
@@ -56,6 +49,20 @@ module.exports = {
 
         const clearCfg = cfg.clear;
         const schCfg = cfg.schematic;
+
+        const centerX = schCfg.placementPoint_x + (clearCfg.center_offset_x || 64);
+        const centerZ = schCfg.placementPoint_z + (clearCfg.center_offset_z || 64);
+        const centerPos = new Vec3(centerX, schCfg.placementPoint_y + 10, centerZ);
+
+        // --- 第 0 階段：前往藍圖中央 (確保區塊加載與指令執行位置) ---
+        logger.info("--- [第 0 階段] 前往藍圖中央 ---");
+        try {
+            await bot.creative.flyTo(centerPos);
+            await sleep(1000);
+        } catch (e) {
+            logger.warn(`前往中心失敗，嘗試使用尋路: ${e.message}`);
+            await pathfinder.astarfly(bot, centerPos, null, null, null, true);
+        }
 
         // --- 第 1 階段：觸發清理按鈕 ---
         logger.info("--- [第 1 階段] 前往清理按鈕並觸發 ---");
@@ -97,11 +104,8 @@ module.exports = {
         // --- 第 2 階段：持續監測直到清空 ---
         logger.info("--- [第 2 階段] 前往地圖中央並監測清空狀態 ---");
         
-        const centerX = schCfg.placementPoint_x + (clearCfg.center_offset_x || 64);
-        const centerZ = schCfg.placementPoint_z + (clearCfg.center_offset_z || 64);
         // 先飛到高空 (Y=120) 以避開可能尚未清空完成的方塊，防止被伺服器判定為卡住或墜落
         const safeHighPos = new Vec3(centerX, 120, centerZ);
-        const centerPos = new Vec3(centerX, schCfg.placementPoint_y + 10, centerZ);
         
         logger.info(`正在飛往高空安全點監測...`);
         try {
@@ -193,13 +197,6 @@ module.exports = {
             });
         }
         
-        // 2. 遊戲內發聲 (修正指令格式，省略 ~ ~ ~ 通常預設為玩家位置)
-        bot.chat('/playsound minecraft:entity.experience_orb.pickup player @a');
-        await sleep(500);
-        bot.chat('/playsound minecraft:entity.experience_orb.pickup player @a');
-        await sleep(500);
-        bot.chat('/playsound minecraft:entity.experience_orb.pickup player @a');
-
         logger.info("✅ 清理監測任務已完成！");
     }
 };

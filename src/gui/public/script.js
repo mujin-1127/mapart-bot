@@ -463,6 +463,7 @@ async function loadTaskConfigs() {
             document.getElementById('save-offset-x').value = lastTask.save.center_offset_x ?? 64;
             document.getElementById('save-offset-z').value = lastTask.save.center_offset_z ?? 64;
             document.getElementById('auto-save-after-build').checked = !!lastTask.save.autoSaveAfterBuild;
+            document.getElementById('auto-clear-after-save').checked = !!lastTask.save.autoClearAfterSave;
         }
         if (lastTask && lastTask.clear) {
             document.getElementById('clear-home-cmd').value = lastTask.clear.home_cmd || "";
@@ -760,7 +761,8 @@ async function saveAutoSaveConfig() {
             ],
             center_offset_x: parseInt(document.getElementById('save-offset-x').value),
             center_offset_z: parseInt(document.getElementById('save-offset-z').value),
-            autoSaveAfterBuild: document.getElementById('auto-save-after-build').checked
+            autoSaveAfterBuild: document.getElementById('auto-save-after-build').checked,
+            autoClearAfterSave: document.getElementById('auto-clear-after-save').checked
         };
 
         const saveRes = await fetch(`/api/global/config/mapart`, {

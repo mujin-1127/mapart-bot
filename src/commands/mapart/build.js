@@ -184,17 +184,62 @@ module.exports = {
 
         // --- 觸發自動存圖邏輯 (單次建造或序列最後一次) ---
         if (mapart_global_cfg.save && mapart_global_cfg.save.autoSaveAfterBuild) {
-            // 只有 worker_id 為 0 的機器人執行存圖
-            if (workerIndex === 0) {
-                logger.info(`[AutoSave] 檢測到全圖建造完成且開啟自動存圖，5秒後開始存圖流程...`);
-                setTimeout(async () => {
-                    try {
-                        const cmdMgr = require('../CommandManager');
-                        await cmdMgr.dispatch(bot, ["save"], { source: task.source });
-                    } catch (e) {
-                        logger.error(`[AutoSave] 自動存圖啟動失敗: ${e.message}`);
+            const webServer = bot.centralWebServer;
+            let allBotsFinished = true;
+
+            if (webServer) {
+                // 檢查所有參與此任務的機器人是否都已完成
+                for (const id of botIds) {
+                    const instance = webServer.botInstances.get(id);
+                    let bc = null;
+                    if (instance) {
+                        if (instance.bot && instance.bot.sharedState) {
+                            bc = instance.bot.sharedState.build_cache;
+                        } else {
+                            bc = instance.sharedState?.build_cache;
+                        }
                     }
-                }, 5000);
+
+                    if (!bc || bc.endTime === -1) {
+                        allBotsFinished = false;
+                        logger.info(`[AutoSave] 等待其他機器人完成: ${id} 尚未結束`);
+                        break;
+                    }
+                }
+            } else {
+                if (workerIndex !== 0) allBotsFinished = false;
+            }
+
+            if (allBotsFinished) {
+                // 防止重複觸發：使用一個全域鎖定（在 WebServer 的共享狀態中）
+                const lockKey = `autosave_lock_${mapart_global_cfg.task_group_id || 'default'}`;
+                if (webServer && webServer.globalMapartCfg) {
+                    if (webServer.globalMapartCfg[lockKey]) {
+                        logger.info(`[AutoSave] 存圖任務已在執行中，跳過重複觸發。`);
+                        return;
+                    }
+                    webServer.globalMapartCfg[lockKey] = true;
+                    // 1 分鐘後自動解鎖，防止意外卡死
+                    setTimeout(() => { delete webServer.globalMapartCfg[lockKey]; }, 60000);
+                }
+                
+                const targetId = botIds[0];
+                const targetInstance = webServer ? webServer.botInstances.get(targetId) : null;
+                const targetBot = targetInstance ? targetInstance.bot : (workerIndex === 0 ? bot : null);
+
+                if (targetBot && targetBot.entity) {
+                    logger.info(`[AutoSave] 檢測到全體建造完成，指派機器人「${targetId}」於 10 秒後開始存圖流程...`);
+                    setTimeout(async () => {
+                        try {
+                            const cmdMgr = require('../CommandManager');
+                            await cmdMgr.dispatch(targetBot, ["save"], { source: task.source });
+                        } catch (e) {
+                            logger.error(`[AutoSave] 自動啟動存圖失敗: ${e.message}`);
+                        }
+                    }, 10000);
+                } else {
+                    logger.warn(`[AutoSave] 檢測到全體完成，但主要機器人 ${targetId} 不在線，無法執行自動存圖。`);
+                }
             }
         }
     }

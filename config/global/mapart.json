@@ -7,7 +7,7 @@
     ]
   ],
   "schematic": {
-    "filename": "C:\\Users\\macso\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.11 fabric\\minecraft\\schematics\\自拍\\tumblr_6bd7e60e6b36e15a5baf11c1e5574360_44c3ac77_500_1_3.nbt",
+    "filename": "C:\\Users\\macso\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.11 fabric\\minecraft\\schematics\\自拍\\tumblr_6bd7e60e6b36e15a5baf11c1e5574360_44c3ac77_500_1_4.nbt",
     "placementPoint_x": 100032,
     "placementPoint_y": 62,
     "placementPoint_z": 100031
@@ -33,7 +33,8 @@
     "glass_pane_chest": [100165, 65, 100069, "W", "bE"],
     "center_offset_x": 64,
     "center_offset_z": 64,
-    "autoSaveAfterBuild": true
+    "autoSaveAfterBuild": true,
+    "autoClearAfterSave": true
   },
   "clear": {
     "home_cmd": "/home r",
