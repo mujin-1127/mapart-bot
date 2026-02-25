@@ -153,15 +153,21 @@ module.exports = {
 
         const getMapOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.empty_map_chest, async (c) => {
             const remain = await containerOperation.withdraw(bot, c, 'map', 1);
-            return remain !== 1;
+            return remain === 0;
         });
-        if (!getMapOk) { logger.error("領取空白地圖失敗，中斷流程"); return; }
+        if (!getMapOk) {
+            logger.error("❌ 領取空白地圖失敗 (箱子可能沒貨或背包已滿)，中斷後續所有流程！");
+            return;
+        }
 
         const getGlassOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.glass_pane_chest, async (c) => {
             const remain = await containerOperation.withdraw(bot, c, 'glass_pane', 1);
-            return remain !== 1;
+            return remain === 0;
         });
-        if (!getGlassOk) { logger.error("領取玻璃片失敗，中斷流程"); return; }
+        if (!getGlassOk) {
+            logger.error("❌ 領取玻璃片失敗 (箱子可能沒貨或背包已滿)，中斷後續所有流程！");
+            return;
+        }
 
         // --- 第 3 階段：地圖寫入 ---
         if (checkStop(bot, logger)) return;
@@ -170,13 +176,27 @@ module.exports = {
         const centerPos = new Vec3(centerX, schCfg.placementPoint_y + 2, centerZ);
         
         await pathfinder.astarfly(bot, centerPos, null, null, null, true);
+        await sleep(2000); // 到達中心後多等 2 秒確保區塊載入
+        
         const emptyMap = bot.inventory.items().find(i => i.name === 'map');
         if (!emptyMap) { logger.error("背包中找不到空白地圖，中斷流程"); return; }
 
-        await bot.equip(emptyMap, 'hand');
+        logger.info("正在將地圖移至快捷列並拿在手上...");
+        await moveToHotbar(bot, emptyMap.slot);
+        const heldOk = await syncHeldItem(bot, 'map', 3000);
+        if (!heldOk) {
+            logger.error("無法將地圖拿在手上，中斷流程");
+            return;
+        }
+        
+        // 看向正下方 (有助於確保地圖正確捕捉腳下方塊)
+        await bot.look(0, -Math.PI / 2, true);
         await sleep(500);
+
+        logger.info("正在開啟地圖...");
         bot.activateItem();
-        await sleep(2000);
+        logger.info("已右鍵使用地圖，等待 5 秒讓地圖渲染資料...");
+        await sleep(5000);
         
         const filledMap = bot.inventory.items().find(i => i.name === 'filled_map');
         if (!filledMap) { logger.error("地圖寫入失敗 (未生成 filled_map)，中斷流程"); return; }

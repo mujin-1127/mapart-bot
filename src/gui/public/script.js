@@ -293,6 +293,27 @@ function updateUI() {
         if (someBotWithTask) refBC = someBotWithTask.build_cache;
     }
 
+    // 新增：如果全域配置中的任務與當前機器人緩存不一致，且舊任務已結束，則優先顯示全域配置 (代表正在自動切換中)
+    if (window.lastTask && window.lastTask.schematic && refBC && refBC.endTime !== -1) {
+        const ltPos = { 
+            x: window.lastTask.schematic.placementPoint_x, 
+            y: window.lastTask.schematic.placementPoint_y, 
+            z: window.lastTask.schematic.placementPoint_z 
+        };
+        const bcPos = refBC.placement_origin || (refBC.schematic ? { x: refBC.schematic.placementPoint_x, y: refBC.schematic.placementPoint_y, z: refBC.schematic.placementPoint_z } : null);
+        
+        if (bcPos && (ltPos.x !== bcPos.x || ltPos.z !== bcPos.z)) {
+            refBC = {
+                schematic: window.lastTask.schematic,
+                taskName: window.lastTask.schematic.filename.split(/[\\/]/).pop(),
+                startTime: -1,
+                endTime: -1,
+                placedBlock: 0,
+                totalBlocks: 0
+            };
+        }
+    }
+
     const overviewSection = document.getElementById('task-overview-section');
     const placeholder = document.getElementById('no-task-placeholder');
 
@@ -304,10 +325,15 @@ function updateUI() {
             taskFile = parts[parts.length - 1];
         } else if (refBC.taskName) {
             taskFile = refBC.taskName;
+        } else if (window.lastTask && window.lastTask.schematic && window.lastTask.schematic.filename) {
+            const parts = window.lastTask.schematic.filename.split(/[\\/]/);
+            taskFile = parts[parts.length - 1];
         } else {
             taskFile = "載入中...";
         }
         
+        document.getElementById('display-task-file').innerText = taskFile;
+
         const participants = Object.values(allStatus).filter(botStatus => {
             const bc = botStatus.build_cache;
             if (!bc || !botStatus.isAssigned || !origin) return false;
@@ -367,7 +393,6 @@ function updateUI() {
             document.getElementById('progress-text').innerText = percent + "%";
             document.getElementById('placed-blocks').innerText = (isFinished) ? taskTotal : taskPlaced;
             document.getElementById('total-blocks').innerText = taskTotal;
-            document.getElementById('display-task-file').innerText = taskFile;
 
             // 使用活躍時間顯示
             const displaySeconds = Math.floor(totalActiveMs / 1000);
@@ -391,6 +416,17 @@ function updateUI() {
                     taskWasFinished = true;
                 }
             }
+        } else {
+            // 有任務但還沒有參與者 (切換中)
+            hasTask = true;
+            overviewSection.style.display = 'block';
+            placeholder.style.display = 'none';
+            document.getElementById('progress-fill').style.width = "0%";
+            document.getElementById('progress-text').innerText = "等待啟動...";
+            document.getElementById('placed-blocks').innerText = "0";
+            document.getElementById('total-blocks').innerText = "---";
+            document.getElementById('build-time-text').innerText = "00:00:00";
+            document.getElementById('eta-text').innerText = "--:--:--";
         }
     }
 
