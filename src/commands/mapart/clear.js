@@ -1,0 +1,205 @@
+const { readConfig, sleep, v } = require('../../../lib/utils');
+const { Vec3 } = require('vec3');
+const mcFallout = require('../../../lib/mcFallout');
+const pathfinder = require('../../../lib/pathfinder');
+const schematic = require('../../../lib/schematic');
+const litematicPrinter = require('../../../lib/litematicPrinter');
+const logger = require('../../../lib/logger').module('Mapart-Clear');
+
+const DEFAULT_OFFSETS = {
+    "bN": new Vec3(0, 1, -2),
+    "bS": new Vec3(0, 1, 2),
+    "bW": new Vec3(-2, 1, 0),
+    "bE": new Vec3(2, 1, 0),
+    "N": new Vec3(0, 1, -3),
+    "S": new Vec3(0, 1, 3),
+    "W": new Vec3(-3, 1, 0),
+    "E": new Vec3(3, 1, 0)
+};
+
+module.exports = {
+    name: "地圖畫 清理區域",
+    identifier: ["clear", "cl"],
+    vaild: true,
+    longRunning: true,
+    permissionRequre: 0,
+    async execute(task) {
+        const bot = task.bot;
+        const bot_id = bot.bot_id || bot.username;
+        const configPath = `${process.cwd()}/config/global/mapart.json`;
+        
+        litematicPrinter.initBot(bot);
+        bot._litematicState.stop = false; // 重置停止狀態
+
+        // 確保機器人在創造模式
+        if (bot.game.gameMode !== 'creative') {
+            logger.warn("機器人不在創造模式，嘗試切換...");
+            bot.chat('/gamemode creative');
+            await sleep(1000);
+        }
+
+        let cfg = await readConfig(configPath);
+        if (!cfg.clear) {
+            logger.error("缺少 'clear' 設定，請檢查 mapart.json");
+            return;
+        }
+
+        // 動態計算 worker_id
+        const botIds = cfg.botIds || [];
+        const workerIndex = botIds.indexOf(bot_id);
+        
+        // 只允許第一個機器人執行
+        if (workerIndex !== 0) {
+            logger.warn(`機器人 (${bot_id}) 不是第一順位，跳過清理任務。`);
+            return;
+        }
+
+        const clearCfg = cfg.clear;
+        const schCfg = cfg.schematic;
+
+        // --- 第 1 階段：觸發清理按鈕 ---
+        logger.info("--- [第 1 階段] 前往清理按鈕並觸發 ---");
+        
+        // 執行設定的傳送指令 (如 /home r)
+        if (clearCfg.home_cmd) {
+            logger.info(`執行傳送指令: ${clearCfg.home_cmd}`);
+            bot.chat(clearCfg.home_cmd);
+            await sleep(2000); // 等待傳送完成
+        }
+
+        if (clearCfg.button) {
+            const btnPos = new Vec3(clearCfg.button[0], clearCfg.button[1], clearCfg.button[2]);
+            // 使用內建 DEFAULT_OFFSETS，不再依賴材料站設定檔
+            const standOffset = DEFAULT_OFFSETS[clearCfg.button[3]] || new Vec3(0, 1, 0);
+            const standPos = btnPos.plus(standOffset);
+            
+            logger.info(`正在前往按鈕位置: ${standPos}`);
+            await pathfinder.astarfly(bot, standPos, null, null, null, true);
+            await sleep(500);
+            
+            const btnBlock = bot.blockAt(btnPos);
+            if (btnBlock) {
+                logger.info(`觸發清理按鈕於 ${btnPos}`);
+                await bot.activateBlock(btnBlock);
+                // 增加等待時間 (5秒)，讓伺服器有時間執行清理指令並避免立即移動造成的同步錯誤
+                await sleep(5000); 
+                
+                // 按完按鈕後執行 /back 回到按下按鈕前的位置 (通常是 /home r 之後的位置)
+                logger.info("執行 /back 指令...");
+                bot.chat('/back');
+                await sleep(2000);
+            } else {
+                logger.error(`找不到清理按鈕於 ${btnPos}`);
+                return;
+            }
+        }
+
+        // --- 第 2 階段：持續監測直到清空 ---
+        logger.info("--- [第 2 階段] 前往地圖中央並監測清空狀態 ---");
+        
+        const centerX = schCfg.placementPoint_x + (clearCfg.center_offset_x || 64);
+        const centerZ = schCfg.placementPoint_z + (clearCfg.center_offset_z || 64);
+        // 先飛到高空 (Y=120) 以避開可能尚未清空完成的方塊，防止被伺服器判定為卡住或墜落
+        const safeHighPos = new Vec3(centerX, 120, centerZ);
+        const centerPos = new Vec3(centerX, schCfg.placementPoint_y + 10, centerZ);
+        
+        logger.info(`正在飛往高空安全點監測...`);
+        try {
+            // 使用 creative.flyTo 通常比 astarfly 在這種單純位移上更穩定
+            await bot.creative.flyTo(safeHighPos);
+            await sleep(1000);
+            await bot.creative.flyTo(centerPos);
+        } catch (e) {
+            logger.warn(`自動飛行至中心失敗，嘗試使用尋路: ${e.message}`);
+            await pathfinder.astarfly(bot, centerPos, null, null, null, true);
+        }
+        await sleep(2000);
+
+        let targetSch;
+        try {
+            targetSch = await schematic.loadFromFile(schCfg.filename);
+            targetSch.toMineflayerID();
+        } catch (e) {
+            logger.error(`載入藍圖失敗: ${e.message}`);
+            return;
+        }
+
+        const placementOrigin = new Vec3(schCfg.placementPoint_x, schCfg.placementPoint_y, schCfg.placementPoint_z);
+        // 過濾掉藍圖中的空氣方塊，只計算實際需要清空的方塊總數
+        const blocksToClear = [];
+        for (let i = 0; i < targetSch.Metadata.TotalVolume; i++) {
+            const pId = targetSch.getBlockPIDByIndex(i);
+            if (!["air", "cave_air"].includes(targetSch.palette[pId].Name)) {
+                blocksToClear.push(i);
+            }
+        }
+        const totalToClear = blocksToClear.length;
+        
+        let isCleared = false;
+        let lastReportTime = 0;
+
+        while (!isCleared) {
+            // 檢查是否中止
+            if (bot._litematicState && bot._litematicState.stop) {
+                logger.info("檢測到停止信號，終止監測。");
+                return;
+            }
+
+            let remainingBlocks = 0;
+            for (const index of blocksToClear) {
+                const rel = targetSch.vec3(index);
+                const absPos = placementOrigin.plus(rel);
+                const block = bot.blockAt(absPos);
+                
+                // 如果區塊未加載或非空氣，計為剩餘方塊
+                if (!block || !["air", "cave_air"].includes(block.name)) {
+                    remainingBlocks++;
+                }
+            }
+
+            const progress = totalToClear > 0 ? ((totalToClear - remainingBlocks) / totalToClear * 100).toFixed(1) : 0;
+            const now = Date.now();
+            
+            // 每 30 秒向前端發送一次進度更新，或當進度完成時
+            if (now - lastReportTime > 30000 || remainingBlocks === 0) {
+                logger.info(`清理進度: ${progress}% (剩餘方塊: ${remainingBlocks}/${totalToClear})`);
+                if (bot.centralWebServer) {
+                    bot.centralWebServer.io.emit('task_progress', {
+                        botId: bot_id,
+                        taskName: "清理區域",
+                        progress: progress,
+                        message: `正在監測清理狀態... 剩餘方塊: ${remainingBlocks}`
+                    });
+                }
+                lastReportTime = now;
+            }
+
+            if (remainingBlocks === 0) {
+                isCleared = true;
+                logger.info("✅ 檢測到區域已完全清空！");
+            } else {
+                await sleep(10000); // 每 10 秒檢查一次
+            }
+        }
+
+        // --- 第 3 階段：發出提示音 ---
+        logger.info("發出完成提示音...");
+        // 1. 發送給 Web UI
+        if (bot.centralWebServer) {
+            bot.centralWebServer.io.emit('task_finished', {
+                botId: bot_id,
+                taskName: "清理區域",
+                message: "地圖繪區域已完全清空！"
+            });
+        }
+        
+        // 2. 遊戲內發聲 (修正指令格式，省略 ~ ~ ~ 通常預設為玩家位置)
+        bot.chat('/playsound minecraft:entity.experience_orb.pickup player @a');
+        await sleep(500);
+        bot.chat('/playsound minecraft:entity.experience_orb.pickup player @a');
+        await sleep(500);
+        bot.chat('/playsound minecraft:entity.experience_orb.pickup player @a');
+
+        logger.info("✅ 清理監測任務已完成！");
+    }
+};

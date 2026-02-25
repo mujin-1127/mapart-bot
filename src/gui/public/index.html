@@ -86,6 +86,7 @@
                             <button onclick="allBotsCmd('mp stop')" style="background: #d35400;">全體中止任務</button>
                             <button onclick="allBotsCmd('mp drop')" style="background: #7f8c8d;">全體清空背包</button>
                             <button onclick="singleBotSave()" style="background: #3498db;">指派一名機器人執行存圖</button>
+                            <button onclick="singleBotClear()" style="background: #e74c3c;">指派一名機器人執行清理</button>
                         </div>
                     </div>
 
@@ -250,6 +251,43 @@
                             </label>
                         </div>
                         <button class="save-btn" onclick="saveAutoSaveConfig()" style="background: #3498db;">儲存自動存圖設定</button>
+                    </div>
+
+                    <!-- 自動清理設定 -->
+                    <div class="card">
+                        <h2>自動清理設定</h2>
+                        <div class="settings-section">
+                            <div class="form-group">
+                                <label>清理前傳送指令 (例如: /home r)</label>
+                                <input type="text" id="clear-home-cmd" class="form-control" placeholder="留空則不執行">
+                            </div>
+                            <h3>清理按鈕位置</h3>
+                            <div class="table-container">
+                                <table>
+                                    <thead><tr><th>名稱</th><th>X</th><th>Y</th><th>Z</th><th>按鈕面</th></tr></thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>清理按鈕</td>
+                                            <td><input type="number" id="clear-btn-x" class="form-control" style="width:80px" value="0"></td>
+                                            <td><input type="number" id="clear-btn-y" class="form-control" style="width:80px" value="0"></td>
+                                            <td><input type="number" id="clear-btn-z" class="form-control" style="width:80px" value="0"></td>
+                                            <td><input type="text" id="clear-btn-f" class="form-control" style="width:60px" value="bN"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="form-grid" style="margin-top: 20px;">
+                                <div class="form-group">
+                                    <label>監測中心 X 偏移</label>
+                                    <input type="number" id="clear-offset-x" class="form-control" value="64">
+                                </div>
+                                <div class="form-group">
+                                    <label>監測中心 Z 偏移</label>
+                                    <input type="number" id="clear-offset-z" class="form-control" value="64">
+                                </div>
+                            </div>
+                        </div>
+                        <button class="save-btn" onclick="saveClearConfig()" style="background: #e74c3c;">儲存自動清理設定</button>
                     </div>
 
                     <!-- 全域材料站設定 -->

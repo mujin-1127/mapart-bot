@@ -76,6 +76,7 @@ class BotInstance {
     try {
       this.bot = mineflayer.createBot(opts)
       this.bot.bot_id = this.id
+      this.bot.centralWebServer = this.webServer // 新增：供指令模組訪問 WebServer / Socket.io
       this.mapartReady = false
 
       this.log.info(`正在啟動 Mineflayer (版本: ${opts.version || '自動偵測'})`);

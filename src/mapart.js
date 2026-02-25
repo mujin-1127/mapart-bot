@@ -110,6 +110,7 @@ const mapart = {
         commandManager.registerCommand(require('./commands/mapart/drop'));
         commandManager.registerCommand(require('./commands/mapart/tp'));
         commandManager.registerCommand(require('./commands/mapart/save'));
+        commandManager.registerCommand(require('./commands/mapart/clear'));
         
         logger(true, 'INFO', `Mapart module initialized for bot ${bot_id}`);
     }

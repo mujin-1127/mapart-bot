@@ -34,5 +34,16 @@
     "center_offset_x": 64,
     "center_offset_z": 64,
     "autoSaveAfterBuild": true
+  },
+  "clear": {
+    "home_cmd": "/home r",
+    "button": [
+      100096,
+      59,
+      100095,
+      "W"
+    ],
+    "center_offset_x": 64,
+    "center_offset_z": 64
   }
 }

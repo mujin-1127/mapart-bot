@@ -122,6 +122,13 @@ socket.on('msa_code', (data) => {
     }
 });
 
+socket.on('task_finished', (data) => {
+    if (document.getElementById('sound-toggle').checked) {
+        playFinishSound();
+    }
+    showToast(`${data.taskName}: ${data.message}`, 'success', 8000);
+});
+
 // 刷新左側機器人列表
 async function refreshBotList() {
     try {
@@ -457,6 +464,18 @@ async function loadTaskConfigs() {
             document.getElementById('save-offset-z').value = lastTask.save.center_offset_z ?? 64;
             document.getElementById('auto-save-after-build').checked = !!lastTask.save.autoSaveAfterBuild;
         }
+        if (lastTask && lastTask.clear) {
+            document.getElementById('clear-home-cmd').value = lastTask.clear.home_cmd || "";
+            if (lastTask.clear.button) {
+                const b = lastTask.clear.button;
+                document.getElementById('clear-btn-x').value = b[0] ?? 0;
+                document.getElementById('clear-btn-y').value = b[1] ?? 0;
+                document.getElementById('clear-btn-z').value = b[2] ?? 0;
+                document.getElementById('clear-btn-f').value = b[3] || "bN";
+            }
+            document.getElementById('clear-offset-x').value = lastTask.clear.center_offset_x ?? 64;
+            document.getElementById('clear-offset-z').value = lastTask.clear.center_offset_z ?? 64;
+        }
         if (lastTask) {
             renderTaskReplaceTable(lastTask.replaceMaterials || []);
         }
@@ -752,6 +771,56 @@ async function saveAutoSaveConfig() {
 
         if (saveRes.ok) {
             showToast('自動存圖設定已儲存');
+        } else {
+            showToast('儲存失敗', 'error');
+        }
+    } catch (e) {
+        console.error(e);
+        showToast('儲存發生錯誤', 'error');
+    }
+}
+
+function singleBotClear() {
+    console.log('執行 singleBotClear...');
+    const assignedBots = window.lastTask?.botIds || [];
+    const onlineBots = Object.keys(allStatus).filter(id => allStatus[id].status === 'online');
+    
+    // 優先從被指派的人中選第一個（因為 clear 指令內也會判定 workerIndex === 0）
+    const targetId = assignedBots.find(id => onlineBots.includes(id)) || onlineBots[0];
+    
+    if (!targetId) {
+        return showToast('目前無在線機器人可執行清理', 'warning');
+    }
+    
+    socket.emit('command', { botId: targetId, cmd: 'mp clear' });
+    showToast(`已指派機器人「${targetId}」執行清理任務 (僅第一位機器人有效)`);
+}
+
+async function saveClearConfig() {
+    try {
+        const res = await fetch(`/api/global/config/mapart`);
+        const fullCfg = await res.json();
+
+        fullCfg.clear = {
+            home_cmd: document.getElementById('clear-home-cmd').value.trim(),
+            button: [
+                parseInt(document.getElementById('clear-btn-x').value),
+                parseInt(document.getElementById('clear-btn-y').value),
+                parseInt(document.getElementById('clear-btn-z').value),
+                document.getElementById('clear-btn-f').value
+            ],
+            center_offset_x: parseInt(document.getElementById('clear-offset-x').value),
+            center_offset_z: parseInt(document.getElementById('clear-offset-z').value)
+        };
+
+        const saveRes = await fetch(`/api/global/config/mapart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fullCfg)
+        });
+
+        if (saveRes.ok) {
+            showToast('自動清理設定已儲存');
         } else {
             showToast('儲存失敗', 'error');
         }
