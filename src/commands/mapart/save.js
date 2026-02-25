@@ -29,6 +29,26 @@ module.exports = {
         const saveCfg = cfg.save;
         const schCfg = cfg.schematic;
         
+        // --- 第 0 階段：清理背包 ---
+        // 在開始存圖流程前，先清理背包中剩餘的建築材料，確保有空間領取地圖與玻璃片
+        const itemsToDrop = bot.inventory.items().filter(item => 
+            item.name.includes('carpet') || 
+            item.name.includes('concrete') || 
+            item.name.includes('wool') ||
+            item.name.includes('terracotta') ||
+            item.name.includes('glass')
+        );
+        if (itemsToDrop.length > 0) {
+            logger.info(`--- [第 0 階段] 正在清理背包中剩餘的 ${itemsToDrop.length} 堆建築材料 ---`);
+            for (const item of itemsToDrop) {
+                try {
+                    await bot.tossStack(item);
+                    await sleep(50);
+                } catch (e) {}
+            }
+            await sleep(500);
+        }
+
         // 0. 載入材料站設定 (用於獲取 Offset 與補救)
         let stationConfig;
         try {

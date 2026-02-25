@@ -32,6 +32,7 @@
     "cartography_table": [100165, 65, 100068, "W", "bE"],
     "glass_pane_chest": [100165, 65, 100069, "W", "bE"],
     "center_offset_x": 64,
-    "center_offset_z": 64
+    "center_offset_z": 64,
+    "autoSaveAfterBuild": true
   }
 }
