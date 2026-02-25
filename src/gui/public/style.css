@@ -608,6 +608,38 @@ button.btn-add {
   display: flex;
   flex-direction: column;
 }
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #444;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+  flex-shrink: 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  border: none;
+  padding: 0;
+  font-size: 1.3em;
+  color: #fff;
+}
+
+.modal-header .button-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.modal-header button {
+  margin: 0 !important;
+  width: auto !important;
+  padding: 8px 15px !important;
+  font-size: 0.9em !important;
+}
+
 .modal .file-list {
   flex: 1;
   overflow-y: auto;

@@ -342,7 +342,9 @@
         <div class="modal-content" style="height: auto; max-width: 400px; margin-top: 10%;">
             <div class="modal-header">
                 <h2 id="modal-title">新增/編輯機器人</h2>
-                <button class="btn-danger" onclick="closeAccountModal()">關閉</button>
+                <div class="button-group">
+                    <button class="btn-danger" onclick="closeAccountModal()">關閉</button>
+                </div>
             </div>
             <div style="padding: 20px;">
                 <div class="form-group">
@@ -369,9 +371,9 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>選擇投影檔 (可多選)</h2>
-                <div style="display: flex; gap: 10px;">
+                <div class="button-group">
                     <button class="btn-add" onclick="selectAllFiles()">全選</button>
-                    <button class="save-btn" onclick="confirmBatchSelection()" style="padding: 5px 15px;">確認選擇</button>
+                    <button class="save-btn" onclick="confirmBatchSelection()">確認選擇</button>
                     <button class="btn-danger" onclick="closeFileModal()">關閉</button>
                 </div>
             </div>
