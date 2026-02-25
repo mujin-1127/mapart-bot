@@ -36,6 +36,10 @@ module.exports = {
         mapart_build_cfg_cache.worker_id = workerIndex;
         mapart_build_cfg_cache.worker_count = botIds.length;
         mapart_build_cfg_cache.bot_id = bot_id;
+
+        if (bot.sharedState && bot.sharedState.build_cache) {
+            bot.sharedState.build_cache.currentAction = "正在建造...";
+        }
         
         const stationFile = mapart_build_cfg_cache?.station || 'station.json';
         

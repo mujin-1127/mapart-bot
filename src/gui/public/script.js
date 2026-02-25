@@ -385,12 +385,33 @@ function updateUI() {
             overviewSection.style.display = 'block';
             placeholder.style.display = 'none';
 
+            // 聚合所有參與者的當前動作
+            const actions = participants.map(p => p.build_cache.currentAction).filter(a => a);
+            const uniqueActions = [...new Set(actions)];
+            const actionText = uniqueActions.length > 0 ? uniqueActions.join(' | ') : (anyNotFinished ? "正在建造..." : "任務完成");
+            document.getElementById('current-action-display').innerText = actionText;
+
             // 修正：只有當真的有人開始蓋且不是全員結束狀態，才計算真實百分比
             const isFinished = participants.every(p => p.build_cache.endTime !== -1);
+            
+            // 如果正在執行後續動作 (有 Action 且已結束建造)，則隱藏進度條細節，只顯示文字
+            const isPostProcessing = !anyNotFinished && uniqueActions.length > 0 && !uniqueActions.includes("正在建造...");
+            
             const percent = (isFinished && taskTotal > 1) ? "100.0" : (!anyStarted ? "0.0" : (((taskPlaced || 0) / taskTotal) * 100).toFixed(1));
             
-            document.getElementById('progress-fill').style.width = percent + "%";
-            document.getElementById('progress-text').innerText = percent + "%";
+            if (isPostProcessing) {
+                document.getElementById('progress-fill').style.width = "100%";
+                document.getElementById('progress-fill').style.backgroundColor = "#9b59b6"; // 紫色代表後處理
+                document.getElementById('progress-text').innerText = "100.0%";
+                // 隱藏方塊計數詳細資訊，讓畫面更乾淨
+                document.querySelector('.progress-info').style.visibility = 'hidden';
+            } else {
+                document.getElementById('progress-fill').style.width = percent + "%";
+                document.getElementById('progress-fill').style.backgroundColor = "#3498db"; // 藍色代表建造中
+                document.getElementById('progress-text').innerText = percent + "%";
+                document.querySelector('.progress-info').style.visibility = 'visible';
+            }
+            
             document.getElementById('placed-blocks').innerText = (isFinished) ? taskTotal : taskPlaced;
             document.getElementById('total-blocks').innerText = taskTotal;
 

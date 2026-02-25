@@ -6,12 +6,7 @@
       "green_carpet"
     ]
   ],
-  "schematic": {
-    "filename": "C:\\Users\\macso\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.11 fabric\\minecraft\\schematics\\粉貓\\123_0_3.nbt",
-    "placementPoint_x": 100032,
-    "placementPoint_y": 62,
-    "placementPoint_z": 100031
-  },
+  "schematic": null,
   "workRegion": {
     "minX": 0,
     "minZ": 0,
@@ -48,13 +43,6 @@
     "center_offset_z": 64
   },
   "lastBrowserPath": "C:\\Users\\macso\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.11 fabric\\minecraft\\schematics\\粉貓",
-  "queue": [
-    {
-      "filename": "C:\\Users\\macso\\AppData\\Roaming\\PrismLauncher\\instances\\1.21.11 fabric\\minecraft\\schematics\\粉貓\\123_0_3.nbt",
-      "x": 100032,
-      "y": 62,
-      "z": 100031
-    }
-  ],
+  "queue": [],
   "autoNext": true
 }

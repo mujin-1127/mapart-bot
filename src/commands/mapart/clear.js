@@ -31,6 +31,12 @@ module.exports = {
         litematicPrinter.initBot(bot);
         bot._litematicState.stop = false; // 重置停止狀態
 
+        const setStatus = (msg) => {
+            if (bot.sharedState && bot.sharedState.build_cache) {
+                bot.sharedState.build_cache.currentAction = msg;
+            }
+        };
+
         let cfg = await readConfig(configPath);
         if (!cfg.clear) {
             logger.error("缺少 'clear' 設定，請檢查 mapart.json");
@@ -55,6 +61,7 @@ module.exports = {
         const centerPos = new Vec3(centerX, schCfg.placementPoint_y + 10, centerZ);
 
         // --- 第 0 階段：前往藍圖中央 (確保區塊加載與指令執行位置) ---
+        setStatus("正在前往地圖中央...");
         logger.info("--- [第 0 階段] 前往藍圖中央 ---");
         if (checkStop(bot, logger)) return;
         try {
@@ -66,11 +73,13 @@ module.exports = {
         }
 
         // --- 第 1 階段：觸發清理按鈕 ---
+        setStatus("正在觸發清理按鈕...");
         logger.info("--- [第 1 階段] 前往清理按鈕並觸發 ---");
         if (checkStop(bot, logger)) return;
         
         // 執行設定的傳送指令 (如 /home r)
         if (clearCfg.home_cmd) {
+            setStatus(`執行傳送指令: ${clearCfg.home_cmd}`);
             logger.info(`執行傳送指令: ${clearCfg.home_cmd}`);
             bot.chat(clearCfg.home_cmd);
             await sleep(2000); // 等待傳送完成
@@ -94,6 +103,7 @@ module.exports = {
                 await sleep(5000); 
                 
                 // 按完按鈕後執行 /back 回到按下按鈕前的位置 (通常是 /home r 之後的位置)
+                setStatus("執行 /back 指令...");
                 logger.info("執行 /back 指令...");
                 bot.chat('/back');
                 await sleep(2000);
@@ -104,6 +114,7 @@ module.exports = {
         }
 
         // --- 第 2 階段：持續監測直到清空 ---
+        setStatus("正在飛往高空監測清空狀態...");
         logger.info("--- [第 2 階段] 前往地圖中央並監測清空狀態 ---");
         if (checkStop(bot, logger)) return;
         
@@ -122,6 +133,7 @@ module.exports = {
         }
         await sleep(2000);
 
+        setStatus("正在載入藍圖進行比對...");
         let targetSch;
         try {
             targetSch = await schematic.loadFromFile(schCfg.filename);
@@ -162,6 +174,7 @@ module.exports = {
             }
 
             const progress = totalToClear > 0 ? ((totalToClear - remainingBlocks) / totalToClear * 100).toFixed(1) : 0;
+            setStatus(`正在監測區域清空... (進度: ${progress}%)`);
             const now = Date.now();
             
             // 每 30 秒向前端發送一次進度更新，或當進度完成時
@@ -187,6 +200,7 @@ module.exports = {
         }
 
         // --- 第 3 階段：發出提示音 ---
+        setStatus("清理完成！");
         logger.info("發出完成提示音...");
         // 1. 發送給 Web UI
         if (bot.centralWebServer) {

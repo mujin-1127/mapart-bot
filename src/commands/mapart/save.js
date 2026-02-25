@@ -26,11 +26,28 @@ module.exports = {
             return;
         }
 
+        const setStatus = (msg) => {
+            if (bot.sharedState && bot.sharedState.build_cache) {
+                bot.sharedState.build_cache.currentAction = msg;
+            }
+        };
+
         const saveCfg = cfg.save;
         const schCfg = cfg.schematic;
         
-        // --- 第 0 階段：清理背包 ---
+        // --- 第 0 階段：清理背包與舊地圖 ---
+        setStatus("正在清理背包與舊地圖...");
         await clearInventory(bot, logger);
+        const oldMaps = bot.inventory.items().filter(i => i.name === 'map' || i.name === 'filled_map');
+        if (oldMaps.length > 0) {
+            logger.info(`正在清理掉背包中 ${oldMaps.length} 個舊地圖物品，避免干擾...`);
+            for (const m of oldMaps) {
+                try {
+                    await bot.tossStack(m);
+                    await sleep(200);
+                } catch (e) {}
+            }
+        }
 
         // 0. 載入材料站設定 (用於獲取 Offset 與補救)
         let stationConfig;
@@ -43,6 +60,7 @@ module.exports = {
         }
 
         // --- 第 1 階段：驗證補救 ---
+        setStatus("正在前往地圖中央驗證方塊...");
         logger.info("--- [第 1 階段] 開始全區域驗證與補救 ---");
         if (checkStop(bot, logger)) return;
         
@@ -59,6 +77,7 @@ module.exports = {
             return;
         }
 
+        setStatus("正在讀取藍圖進行掃描...");
         let targetSch;
         try {
             targetSch = await schematic.loadFromFile(schCfg.filename);
@@ -90,7 +109,10 @@ module.exports = {
 
         if (missingBlocks.length > 0) {
             logger.warn(`發現 ${missingBlocks.length} 個漏蓋方塊，開始補救...`);
+            let count = 0;
             for (const mb of missingBlocks) {
+                count++;
+                setStatus(`正在補救方塊 (${count}/${missingBlocks.length}): ${mb.name}`);
                 if (checkStop(bot, logger)) return;
                 await pathfinder.astarfly(bot, mb.pos.offset(0, 2, 0), null, null, null, true);
                 let current = bot.blockAt(mb.pos);
@@ -98,6 +120,7 @@ module.exports = {
 
                 let item = bot.inventory.items().find(i => i.name === mb.name);
                 if (!item && stationConfig) {
+                    setStatus(`正在補給方塊: ${mb.name}`);
                     await station.restock(bot, stationConfig, [{ name: mb.name, count: 64 }]);
                     await pathfinder.astarfly(bot, mb.pos.offset(0, 2, 0), null, null, null, true);
                 }
@@ -132,6 +155,7 @@ module.exports = {
                     return;
                 }
             }
+            setStatus("補救完成，進行最後確認...");
             logger.info("補救完成，再次確認全區域...");
             for (const mb of missingBlocks) {
                 const b = bot.blockAt(mb.pos);
@@ -143,6 +167,7 @@ module.exports = {
         }
 
         // --- 第 2 階段：物資準備 ---
+        setStatus("正在前往補給站領取物資...");
         logger.info("--- [第 2 階段] 正在前往補給站並領取物資 ---");
         if (checkStop(bot, logger)) return;
         if (saveCfg.warp) {
@@ -151,6 +176,7 @@ module.exports = {
             await sleep(2000);
         }
 
+        setStatus("正在領取空白地圖...");
         const getMapOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.empty_map_chest, async (c) => {
             const remain = await containerOperation.withdraw(bot, c, 'map', 1);
             return remain === 0;
@@ -160,6 +186,7 @@ module.exports = {
             return;
         }
 
+        setStatus("正在領取玻璃片...");
         const getGlassOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.glass_pane_chest, async (c) => {
             const remain = await containerOperation.withdraw(bot, c, 'glass_pane', 1);
             return remain === 0;
@@ -170,6 +197,7 @@ module.exports = {
         }
 
         // --- 第 3 階段：地圖寫入 ---
+        setStatus("正在飛回地圖中央寫入地圖資料...");
         if (checkStop(bot, logger)) return;
         const centerX = schCfg.placementPoint_x + (saveCfg.center_offset_x || 64);
         const centerZ = schCfg.placementPoint_z + (saveCfg.center_offset_z || 64);
@@ -181,6 +209,7 @@ module.exports = {
         const emptyMap = bot.inventory.items().find(i => i.name === 'map');
         if (!emptyMap) { logger.error("背包中找不到空白地圖，中斷流程"); return; }
 
+        setStatus("正在開啟地圖...");
         logger.info("正在將地圖移至快捷列並拿在手上...");
         await moveToHotbar(bot, emptyMap.slot);
         const heldOk = await syncHeldItem(bot, 'map', 3000);
@@ -202,6 +231,7 @@ module.exports = {
         if (!filledMap) { logger.error("地圖寫入失敗 (未生成 filled_map)，中斷流程"); return; }
 
         // --- 第 4 階段：鎖定地圖 ---
+        setStatus("正在前往製圖台鎖定地圖...");
         logger.info("--- [第 4 階段] 正在前往製圖台鎖定地圖 ---");
         if (checkStop(bot, logger)) return;
         let lockOk = false;
@@ -228,6 +258,7 @@ module.exports = {
         if (!cartOk || !lockOk) { logger.error("鎖定地圖失敗，中斷流程"); return; }
 
         // --- 第 5 階段：存檔指令 ---
+        setStatus("正在執行 /savemap 指令...");
         logger.info("--- [第 5 階段] 執行 /savemap 指令 ---");
         if (checkStop(bot, logger)) return;
         const lockedMap = bot.inventory.items().find(i => i.name === 'filled_map');
@@ -239,6 +270,7 @@ module.exports = {
         await sleep(2000); 
 
         // --- 第 6 階段：歸檔存入 ---
+        setStatus("正在存入成果箱歸檔...");
         logger.info("--- [第 6 階段] 正在存入成果箱 ---");
         if (checkStop(bot, logger)) return;
         const finalDepositOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.filled_map_chest, async (c) => {
@@ -269,6 +301,7 @@ module.exports = {
 
         if (!finalDepositOk) { logger.error("最後存入成果箱失敗！"); return; }
 
+        setStatus("存圖流程已全部完成！");
         logger.info("✅ 自動存圖流程已全部嚴謹完成！");
 
         // --- 第 7 階段：自動清理 (選用) ---
