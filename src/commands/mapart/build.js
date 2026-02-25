@@ -175,6 +175,22 @@ module.exports = {
                 }, 10000);
             } else {
                 logger.info(`[AutoNext] 未發現檔案: ${nextFilename}，自動建造結束。`);
+                
+                // --- 新增：自動存圖邏輯 ---
+                if (mapart_global_cfg.save && mapart_global_cfg.save.autoSaveAfterBuild) {
+                    // 只有 worker_id 為 0 的機器人執行存圖
+                    if (workerIndex === 0) {
+                        logger.info(`[AutoSave] 檢測到全圖建造完成且開啟自動存圖，5秒後開始存圖流程...`);
+                        setTimeout(async () => {
+                            try {
+                                const cmdMgr = require('../CommandManager');
+                                await cmdMgr.dispatch(bot, ["save"], { source: task.source });
+                            } catch (e) {
+                                logger.error(`[AutoSave] 自動存圖啟動失敗: ${e.message}`);
+                            }
+                        }, 5000);
+                    }
+                }
             }
         }
     }

@@ -455,6 +455,7 @@ async function loadTaskConfigs() {
             
             document.getElementById('save-offset-x').value = lastTask.save.center_offset_x ?? 64;
             document.getElementById('save-offset-z').value = lastTask.save.center_offset_z ?? 64;
+            document.getElementById('auto-save-after-build').checked = !!lastTask.save.autoSaveAfterBuild;
         }
         if (lastTask) {
             renderTaskReplaceTable(lastTask.replaceMaterials || []);
@@ -739,7 +740,8 @@ async function saveAutoSaveConfig() {
                 document.getElementById('save-glass-bf').value
             ],
             center_offset_x: parseInt(document.getElementById('save-offset-x').value),
-            center_offset_z: parseInt(document.getElementById('save-offset-z').value)
+            center_offset_z: parseInt(document.getElementById('save-offset-z').value),
+            autoSaveAfterBuild: document.getElementById('auto-save-after-build').checked
         };
 
         const saveRes = await fetch(`/api/global/config/mapart`, {
