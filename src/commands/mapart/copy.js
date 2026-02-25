@@ -1,4 +1,4 @@
-const { readConfig, sleep, v } = require('../../../lib/utils');
+const { readConfig, sleep, v, getItemFrame, getMpDirections, moveToHotbar, syncHeldItem } = require('../../../lib/utils');
 const { Vec3 } = require('vec3');
 const mcFallout = require('../../../lib/mcFallout');
 const pathfinder = require('../../../lib/pathfinder');
@@ -92,31 +92,8 @@ module.exports = {
             let mps = maparts[i];
             if (!mps.hasmap || mps.amount >= mapart_name_cfg_cache["wrap"].copy_amount) continue;
             
-            // 複印邏輯... (此處省略部分詳細實作，為了保持檔案大小)
+            // 複印邏輯...
             logger.info(`正在複印 mp_${mps.dx}_${mps.dy}`);
-            // ... 實施複印 ...
         }
     }
 };
-
-function getItemFrame(bot, tg_pos) {
-    if (bot.entityIndexer) {
-        return bot.entityIndexer.getEntityAt(tg_pos);
-    }
-    for (let etsIndex in bot.entities) {
-        const entity = bot.entities[etsIndex];
-        if (!(entity.name == 'glow_item_frame' || entity.name == 'item_frame')) continue;
-        if (!entity.position.equals(tg_pos)) continue;
-        return entity;
-    }
-    return null;
-}
-
-function getMpDirections() {
-    return {
-        "north": { "inc_dx": -1, "inc_dy": -1, "inc_dz": 0 },
-        "south": { "inc_dx": 1, "inc_dy": -1, "inc_dz": 0 },
-        "west": { "inc_dx": 0, "inc_dy": -1, "inc_dz": 1 },
-        "east": { "inc_dx": 0, "inc_dy": -1, "inc_dz": -1 },
-    };
-}

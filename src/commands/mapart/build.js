@@ -1,4 +1,4 @@
-const { readConfig, saveConfig, taskreply } = require('../../../lib/utils');
+const { readConfig, saveConfig, taskreply, sleep, clearInventory } = require('../../../lib/utils');
 const litematicPrinter = require('../../../lib/litematicPrinter');
 const { WebhookClient } = require('discord.js');
 const fs = require('fs');
@@ -82,6 +82,9 @@ module.exports = {
                     break;
             }
         }
+
+        // --- 新增：建造前清理背包 (ALL BOT) ---
+        await clearInventory(bot, logger);
 
         try {
             await litematicPrinter.build_file(task, bot, litematicPrinter.model_mapart, mapart_build_cfg_cache);
@@ -173,24 +176,25 @@ module.exports = {
                         logger.error(`[AutoNext] 自動建造啟動或執行失敗: ${e.message}`);
                     }
                 }, 10000);
+                return; // 啟動下一個任務，不觸發存圖
             } else {
                 logger.info(`[AutoNext] 未發現檔案: ${nextFilename}，自動建造結束。`);
-                
-                // --- 新增：自動存圖邏輯 ---
-                if (mapart_global_cfg.save && mapart_global_cfg.save.autoSaveAfterBuild) {
-                    // 只有 worker_id 為 0 的機器人執行存圖
-                    if (workerIndex === 0) {
-                        logger.info(`[AutoSave] 檢測到全圖建造完成且開啟自動存圖，5秒後開始存圖流程...`);
-                        setTimeout(async () => {
-                            try {
-                                const cmdMgr = require('../CommandManager');
-                                await cmdMgr.dispatch(bot, ["save"], { source: task.source });
-                            } catch (e) {
-                                logger.error(`[AutoSave] 自動存圖啟動失敗: ${e.message}`);
-                            }
-                        }, 5000);
+            }
+        }
+
+        // --- 觸發自動存圖邏輯 (單次建造或序列最後一次) ---
+        if (mapart_global_cfg.save && mapart_global_cfg.save.autoSaveAfterBuild) {
+            // 只有 worker_id 為 0 的機器人執行存圖
+            if (workerIndex === 0) {
+                logger.info(`[AutoSave] 檢測到全圖建造完成且開啟自動存圖，5秒後開始存圖流程...`);
+                setTimeout(async () => {
+                    try {
+                        const cmdMgr = require('../CommandManager');
+                        await cmdMgr.dispatch(bot, ["save"], { source: task.source });
+                    } catch (e) {
+                        logger.error(`[AutoSave] 自動存圖啟動失敗: ${e.message}`);
                     }
-                }
+                }, 5000);
             }
         }
     }

@@ -1,4 +1,4 @@
-const { readConfig, sleep, v } = require('../../../lib/utils');
+const { readConfig, sleep, v, getItemFrame, getMpDirections, moveToHotbar, syncHeldItem } = require('../../../lib/utils');
 const { Vec3 } = require('vec3');
 const mcFallout = require('../../../lib/mcFallout');
 const pathfinder = require('../../../lib/pathfinder');
@@ -100,10 +100,10 @@ module.exports = {
             }
             
             let new_it = getMapItemByMapIDInInventory(bot, mps.mapid);
-            let st = new_it.slot;
-            await bot.simpleClick.leftMouse(st);
-            await bot.simpleClick.leftMouse(44);
-            await bot.simpleClick.leftMouse(st);
+            if (new_it) {
+                await moveToHotbar(bot, new_it.slot);
+                await syncHeldItem(bot, new_it.name);
+            }
             
             let fail_c = 0;
             while (fail_c < 10) {
@@ -129,19 +129,6 @@ module.exports = {
     }
 };
 
-function getItemFrame(bot, tg_pos) {
-    if (bot.entityIndexer) {
-        return bot.entityIndexer.getEntityAt(tg_pos);
-    }
-    for (let etsIndex in bot.entities) {
-        const entity = bot.entities[etsIndex];
-        if (!(entity.name == 'glow_item_frame' || entity.name == 'item_frame')) continue;
-        if (!entity.position.equals(tg_pos)) continue;
-        return entity;
-    }
-    return null;
-}
-
 function getMapItemByMapIDInInventory(bot, mpID) {
     return bot.inventory.slots.find(item => item?.nbt?.value?.map?.value == mpID);
 }
@@ -164,13 +151,4 @@ async function pickMapItem(bot, mpID, mcData) {
     }
     if (timeout) throw new Error("撿起地圖畫超時");
     try { clearTimeout(to); } catch (e) { }
-}
-
-function getMpDirections() {
-    return {
-        "north": { "inc_dx": -1, "inc_dy": -1, "inc_dz": 0 },
-        "south": { "inc_dx": 1, "inc_dy": -1, "inc_dz": 0 },
-        "west": { "inc_dx": 0, "inc_dy": -1, "inc_dz": 1 },
-        "east": { "inc_dx": 0, "inc_dy": -1, "inc_dz": -1 },
-    };
 }

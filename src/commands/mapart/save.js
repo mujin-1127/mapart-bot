@@ -1,4 +1,4 @@
-const { readConfig, sleep, v } = require('../../../lib/utils');
+const { readConfig, sleep, v, clearInventory, moveToHotbar, syncHeldItem } = require('../../../lib/utils');
 const { Vec3 } = require('vec3');
 const mcFallout = require('../../../lib/mcFallout');
 const pathfinder = require('../../../lib/pathfinder');
@@ -30,24 +30,7 @@ module.exports = {
         const schCfg = cfg.schematic;
         
         // --- 第 0 階段：清理背包 ---
-        // 在開始存圖流程前，先清理背包中剩餘的建築材料，確保有空間領取地圖與玻璃片
-        const itemsToDrop = bot.inventory.items().filter(item => 
-            item.name.includes('carpet') || 
-            item.name.includes('concrete') || 
-            item.name.includes('wool') ||
-            item.name.includes('terracotta') ||
-            item.name.includes('glass')
-        );
-        if (itemsToDrop.length > 0) {
-            logger.info(`--- [第 0 階段] 正在清理背包中剩餘的 ${itemsToDrop.length} 堆建築材料 ---`);
-            for (const item of itemsToDrop) {
-                try {
-                    await bot.tossStack(item);
-                    await sleep(50);
-                } catch (e) {}
-            }
-            await sleep(500);
-        }
+        await clearInventory(bot, logger);
 
         // 0. 載入材料站設定 (用於獲取 Offset 與補救)
         let stationConfig;
@@ -59,57 +42,9 @@ module.exports = {
             return;
         }
 
-        // 定義一個內部輔助函式來處理箱子開啟 (含按鈕邏輯)
-        const operateBox = async (boxInfo, action) => {
-            if (!boxInfo || boxInfo.length < 3) return false;
-            const boxPos = new Vec3(boxInfo[0], boxInfo[1], boxInfo[2]);
-            const standPos = boxPos.plus(v(stationConfig.offset[boxInfo[3] || 'N']));
-            const btnPos = boxPos.plus(v(stationConfig.offset[boxInfo[4] || 'bN']));
-
-            // 尋路
-            try {
-                await pathfinder.astarfly(bot, standPos, null, null, null, true);
-            } catch (e) {
-                logger.error(`尋路失敗至 ${standPos}: ${e.message}`);
-                return false;
-            }
-            
-            // 開啟邏輯
-            let container = null;
-            for (let attempt = 0; attempt < 5; attempt++) {
-                const block = bot.blockAt(boxPos);
-                if (!block || block.name === 'air') {
-                    const btnBlock = bot.blockAt(btnPos);
-                    if (btnBlock) {
-                        await bot.activateBlock(btnBlock);
-                        await sleep(500);
-                    }
-                }
-                container = await containerOperation.openContainerWithTimeout(bot, boxPos, 1500);
-                if (container) break;
-                await sleep(300);
-            }
-
-            if (!container) {
-                logger.error(`無法開啟位於 ${boxPos} 的目標`);
-                return false;
-            }
-
-            try {
-                const result = await action(container);
-                await container.close();
-                return result !== false; // 如果 action 回傳 false 也代表失敗
-            } catch (err) {
-                logger.error(`操作失敗: ${err.message}`);
-                await container.close();
-                return false;
-            }
-        };
-
         // --- 第 1 階段：驗證補救 ---
         logger.info("--- [第 1 階段] 開始全區域驗證與補救 ---");
         
-        // 先飛往地圖中央，確保區塊載入
         const mapCenterX = schCfg.placementPoint_x + 64;
         const mapCenterZ = schCfg.placementPoint_z + 64;
         const mapCenterPos = new Vec3(mapCenterX, schCfg.placementPoint_y + 10, mapCenterZ);
@@ -117,7 +52,7 @@ module.exports = {
         logger.info(`正在飛往地圖中央 (${mapCenterPos}) 以載入區塊...`);
         try {
             await pathfinder.astarfly(bot, mapCenterPos, null, null, null, true);
-            await sleep(1000); // 等待區塊載入
+            await sleep(1000); 
         } catch (e) {
             logger.error(`無法飛往地圖中央: ${e.message}`);
             return;
@@ -147,7 +82,6 @@ module.exports = {
 
             const absPos = placementOrigin.plus(rel);
             const block = bot.blockAt(absPos);
-            // 如果區塊未載入，block 會是 null
             if (!block || block.name !== expectedName) {
                 missingBlocks.push({ pos: absPos, name: expectedName });
             }
@@ -184,8 +118,10 @@ module.exports = {
                         consecutiveFailures = 0;
                     } else {
                         consecutiveFailures++;
-                        if (consecutiveFailures >= 20) {
-                            logger.error("連續放置失敗超過 20 次，中斷流程");
+                        if (consecutiveFailures >= 100) {
+                            logger.error(`連續放置失敗 ${consecutiveFailures} 次，正在強制重啟機器人...`);
+                            consecutiveFailures = 0;
+                            bot.end('Restarting due to 100 consecutive placement failures in save verification');
                             return;
                         }
                     }
@@ -194,7 +130,6 @@ module.exports = {
                     return;
                 }
             }
-            // 補救完再次檢查
             logger.info("補救完成，再次確認全區域...");
             for (const mb of missingBlocks) {
                 const b = bot.blockAt(mb.pos);
@@ -209,21 +144,17 @@ module.exports = {
         logger.info("--- [第 2 階段] 正在前往補給站並領取物資 ---");
         if (saveCfg.warp) {
             const warpOk = await mcFallout.warp(bot, saveCfg.warp, 5000, 3);
-            if (!warpOk) {
-                logger.error("傳送至補給站失敗，中斷流程");
-                return;
-            }
+            if (!warpOk) { logger.error("傳送至補給站失敗，中斷流程"); return; }
             await sleep(2000);
         }
 
-        // 領取空白地圖與玻璃片
-        const getMapOk = await operateBox(saveCfg.empty_map_chest, async (c) => {
+        const getMapOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.empty_map_chest, async (c) => {
             const remain = await containerOperation.withdraw(bot, c, 'map', 1);
-            return remain !== 1; // 如果領取成功，remain 會是 0 或比 1 小
+            return remain !== 1;
         });
         if (!getMapOk) { logger.error("領取空白地圖失敗，中斷流程"); return; }
 
-        const getGlassOk = await operateBox(saveCfg.glass_pane_chest, async (c) => {
+        const getGlassOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.glass_pane_chest, async (c) => {
             const remain = await containerOperation.withdraw(bot, c, 'glass_pane', 1);
             return remain !== 1;
         });
@@ -249,13 +180,10 @@ module.exports = {
         // --- 第 4 階段：鎖定地圖 ---
         logger.info("--- [第 4 階段] 正在前往製圖台鎖定地圖 ---");
         let lockOk = false;
-        const cartOk = await operateBox(saveCfg.cartography_table, async (table) => {
+        const cartOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.cartography_table, async (table) => {
             const mapInInv = table.items().find(i => i.name === 'filled_map');
             const glassInInv = table.items().find(i => i.name === 'glass_pane');
-            if (!mapInInv || !glassInInv) {
-                logger.error("製圖台中找不到地圖或玻璃片，請檢查背包同步");
-                return false;
-            }
+            if (!mapInInv || !glassInInv) return false;
             
             await bot.clickWindow(mapInInv.slot, 0, 0);
             await bot.clickWindow(0, 0, 0);
@@ -282,33 +210,26 @@ module.exports = {
         await bot.equip(lockedMap, 'hand');
         await sleep(500);
         bot.chat('/savemap');
-        await sleep(2000); // 給予伺服器一點時間處理
+        await sleep(2000); 
 
         // --- 第 6 階段：歸檔存入 ---
         logger.info("--- [第 6 階段] 正在存入成果箱 ---");
-        const finalDepositOk = await operateBox(saveCfg.filled_map_chest, async (c) => {
+        const finalDepositOk = await containerOperation.operateBox(bot, stationConfig, saveCfg.filled_map_chest, async (c) => {
             await sleep(500);
-            bot.updateHeldItem(); // 強制同步背包狀態
-            
-            // 必須從目前開啟的視窗 (c) 中尋找物品，且槽位必須在背包區域 (>= c.inventoryStart)
+            bot.updateHeldItem();
             const itemToDeposit = c.items().find(i => i.name === 'filled_map' && i.slot >= c.inventoryStart);
             
             if (!itemToDeposit) {
-                logger.warn("視窗中找不到填滿的地圖，嘗試直接使用 deposit");
                 const remain = await containerOperation.deposit(bot, c, 'filled_map', 1);
                 return remain === 0;
             }
 
             let targetSlot = -1;
             for (let i = 0; i < c.inventoryStart; i++) {
-                if (!c.slots[i]) {
-                    targetSlot = i;
-                    break;
-                }
+                if (!c.slots[i]) { targetSlot = i; break; }
             }
 
             if (targetSlot !== -1) {
-                logger.info(`將地圖從槽位 ${itemToDeposit.slot} 存入容器槽位 ${targetSlot}`);
                 await bot.clickWindow(itemToDeposit.slot, 0, 0);
                 await bot.clickWindow(targetSlot, 0, 0);
                 await sleep(600);
@@ -319,10 +240,7 @@ module.exports = {
             }
         });
 
-        if (!finalDepositOk) {
-            logger.error("最後存入成果箱失敗！請手動檢查機器人背包");
-            return;
-        }
+        if (!finalDepositOk) { logger.error("最後存入成果箱失敗！"); return; }
 
         logger.info("✅ 自動存圖流程已全部嚴謹完成！");
     }

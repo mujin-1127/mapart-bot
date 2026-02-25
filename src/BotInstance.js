@@ -22,6 +22,7 @@ class BotInstance {
     this.log = logger.module('Main', this.id)
     this.HEART_SYMBOL = '❤'
     this.reconnectTimer = null
+    this.reconnectCount = 0 // 新增：連續重連計數器
     
     // 初始化一個共享狀態，讓 WebServer 隨時可以讀取進度，即使 bot 尚未連線
     this.sharedState = {
@@ -119,6 +120,7 @@ class BotInstance {
       // 掛載事件 - 使用 once 避免每次死亡重生/切換維度時重複執行初始化
       this.bot.once('spawn', async () => {
         this.status = 'online';
+        this.reconnectCount = 0; // 成功進入遊戲，重置計數器
         this.log.info('機器人已進入遊戲');
         await this.sendLobbyCommand()
         await this.initMapart()
@@ -157,8 +159,15 @@ class BotInstance {
     this.log.warn(`連線已中斷: ${reason}`);
     this.bot = null;
     if (this.status !== 'offline') {
+      this.reconnectCount++;
+      if (this.reconnectCount > 10) {
+        this.log.error(`連續重連失敗已達 10 次，放棄自動重連。請手動檢查問題後再啟動。`);
+        this.status = 'offline';
+        this.reconnectCount = 0;
+        return;
+      }
       this.status = 'connecting';
-      this.log.info('10秒後將嘗試自動重新連線...');
+      this.log.info(`第 ${this.reconnectCount}/10 次重連：10秒後將嘗試自動重新連線...`);
       this.reconnectTimer = setTimeout(() => this.connect(), this.config.reconnectDelay || 10000);
     }
   }

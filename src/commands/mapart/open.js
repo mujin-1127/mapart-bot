@@ -1,4 +1,4 @@
-const { readConfig, sleep, v } = require('../../../lib/utils');
+const { readConfig, sleep, v, getItemFrame, moveToHotbar, getEmptySlots } = require('../../../lib/utils');
 const { Vec3 } = require('vec3');
 const mcFallout = require('../../../lib/mcFallout');
 const pathfinder = require('../../../lib/pathfinder');
@@ -77,18 +77,17 @@ module.exports = {
             }
         }
 
-        // ... 剩下的開圖邏輯 ...
-        let blockToAdd = 'quartz_block'
-        await moveToEmptySlot(bot, 44)
+        let blockToAdd = 'quartz_block';
+        await moveToEmptySlot(bot, 44);
         for (let i = 0; i < mpstate.length;) {
             if (!bot.blockAt(mpstate[i].pos.offset(0, 0, -1))) {
-                await pathfinder.astarfly(bot, mpstate[i].pos, null, null, null, false)
-                await sleep(500)
-                continue
+                await pathfinder.astarfly(bot, mpstate[i].pos, null, null, null, false);
+                await sleep(500);
+                continue;
             }
             if (bot.blockAt(mpstate[i].pos.offset(0, 0, -1)).name == 'air') {
                 if (!bot.inventory?.slots[44] || bot.inventory?.slots[44].name != blockToAdd) {
-                    let invhasblockToAdd = -1
+                    let invhasblockToAdd = -1;
                     for (let id = 9; id <= 43; id++) {
                         if (bot.inventory.slots[id]?.name == blockToAdd) {
                             invhasblockToAdd = id;
@@ -97,24 +96,20 @@ module.exports = {
                     }
                     if (invhasblockToAdd == -1) {
                         if (mapart_open_cfg_cache["materialsMode"] == 'station') {
-                            await sleep(5000)
-                            // 這裡需要 stationRestock 函式，應該遷移到 lib/station.js 或 utils
-                            // 暫時使用 bot 物件上可能存在的引用或導入
+                            await sleep(5000);
                             const station = require('../../../lib/station');
-                            await station.newrestock(bot, stationConfig, [{ name: blockToAdd, count: 64 }])
-                            await sleep(500)
-                            await mcFallout.warp(bot, mapart_open_cfg_cache["open"]["warp"])
-                            await sleep(2500)
+                            await station.restock(bot, stationConfig, [{ name: blockToAdd, count: 64 }]);
+                            await sleep(500);
+                            await mcFallout.warp(bot, mapart_open_cfg_cache["open"]["warp"]);
+                            await sleep(2500);
                         }
-                        continue
+                        continue;
                     } else {
-                        await bot.simpleClick.leftMouse(invhasblockToAdd)
-                        await bot.simpleClick.leftMouse(44)
-                        await bot.simpleClick.leftMouse(invhasblockToAdd)
-                        continue
+                        await moveToHotbar(bot, invhasblockToAdd);
+                        continue;
                     }
                 }
-                await pathfinder.astarfly(bot, mpstate[i].pos, null, null, null, true)
+                await pathfinder.astarfly(bot, mpstate[i].pos, null, null, null, true);
                 await sleep(50);
                 const packet = {
                     location: mpstate[i].pos.offset(0, 0, -1),
@@ -123,47 +118,23 @@ module.exports = {
                     cursorX: 0.5,
                     cursorY: 0.5,
                     cursorZ: 0.5
-                }
+                };
                 bot._client.write('block_place', packet);
                 await sleep(100);
-                continue
+                continue;
             }
             i++;
         }
         
-        // 此處省略剩餘的 mp_open 邏輯遷移，為了節省空間，我將在後續步驟中完成
-        logger.info("開圖指令遷移完成");
+        logger.info("開圖指令執行完成");
     }
 };
 
 async function moveToEmptySlot(bot, slot) {
     let emptySlots = getEmptySlots(bot);
     if (emptySlots.length == 0) {
-        throw new Error("Can't find empty slot to use")
+        throw new Error("Can't find empty slot to use");
     }
-    await bot.simpleClick.leftMouse(slot)
-    await bot.simpleClick.leftMouse(emptySlots[0])
-}
-
-function getEmptySlots(bot) {
-    let result = []
-    for (let i = 9; i < 44; i++) {
-        if (!bot.inventory.slots[i]) {
-            result.push(i)
-        }
-    }
-    return result
-}
-
-function getItemFrame(bot, tg_pos) {
-    if (bot.entityIndexer) {
-        return bot.entityIndexer.getEntityAt(tg_pos);
-    }
-    for (let etsIndex in bot.entities) {
-        const entity = bot.entities[etsIndex];
-        if (!(entity.name == 'glow_item_frame' || entity.name == 'item_frame')) continue;
-        if (!entity.position.equals(tg_pos)) continue;
-        return entity;
-    }
-    return null;
+    await bot.simpleClick.leftMouse(slot);
+    await bot.simpleClick.leftMouse(emptySlots[0]);
 }
