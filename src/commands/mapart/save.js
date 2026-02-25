@@ -253,6 +253,10 @@ module.exports = {
             commandManager.dispatch(bot, ['clear'], { source: 'auto' }).catch(err => {
                 logger.error(`自動啟動清理流程失敗: ${err.message}`);
             });
+        } else {
+            // 如果沒有開啟自動清理，則在這裡檢查是否要跳下一個任務
+            const { tryTriggerNextTask } = require('./clear');
+            await tryTriggerNextTask(bot, task.source);
         }
     }
 };

@@ -120,63 +120,87 @@
                         <h2 style="border-bottom: 2px solid #2ecc71;">機器人背包內容</h2>
                         <div id="inventory" class="inventory-grid"></div>
                     </div>
+
+                    <!-- 浮動任務列表視窗 -->
+                    <div id="floating-task-panel" class="floating-window">
+                        <div class="floating-header">
+                            <span>📋 任務佇列</span>
+                            <button class="mini-btn" onclick="toggleTaskPanel()">-</button>
+                        </div>
+                        <div id="floating-task-list" class="floating-content">
+                            <!-- 動態填充內容 -->
+                        </div>
+                    </div>
+                    <button id="show-task-btn" class="floating-toggle-btn" onclick="toggleTaskPanel()" style="display: none;">📋</button>
                 </div>
 
                 <!-- 投影任務設定 (Schematic Settings) -->
                 <div id="schematic-settings" class="settings-container">
                     <div class="card">
-                        <h2>1. 選擇投影檔案與座標</h2>
+                        <h2>1. 任務列表與放置座標</h2>
                         <div class="settings-section">
-                            <div class="form-group">
-                                <label>投影檔路徑 (.nbt)</label>
-                                <div style="display: flex; gap: 10px;">
-                                    <input type="text" id="task-schematic-filename" class="form-control" placeholder="選擇或輸入路徑...">
-                                    <button onclick="openFileBrowser()">瀏覽檔案</button>
-                                </div>
+                            <div class="form-grid" style="margin-bottom: 20px;">
+                                <div class="form-group"><label>全域放置點 X</label><input type="number" id="task-pos-x" class="form-control" value="0"></div>
+                                <div class="form-group"><label>全域放置點 Y</label><input type="number" id="task-pos-y" class="form-control" value="100"></div>
+                                <div class="form-group"><label>全域放置點 Z</label><input type="number" id="task-pos-z" class="form-control" value="0"></div>
                             </div>
-                            <div class="form-grid">
-                                <div class="form-group"><label>放置點 X</label><input type="number" id="task-pos-x" class="form-control" value="0"></div>
-                                <div class="form-group"><label>放置點 Y</label><input type="number" id="task-pos-y" class="form-control" value="100"></div>
-                                <div class="form-group"><label>放置點 Z</label><input type="number" id="task-pos-z" class="form-control" value="0"></div>
-                            </div>
-                            <h3>總工作區域限制 (協作時會以此範圍進行均分)</h3>
-                            <div class="form-group">
-                                <label>區域預設快速選擇 (按 Y 軸劃分)</label>
-                                <select id="task-region-preset" class="form-control" onchange="applyTaskRegionPreset(this.value)">
-                                    <option value="full">完整區域 (0-128)</option>
-                                    <option value="h1">1/2 上半部 (Y: 0-63)</option>
-                                    <option value="h2">1/2 下半部 (Y: 64-128)</option>
-                                    <option value="q1">1/4 區塊 1 (Y: 0-31)</option>
-                                    <option value="q2">1/4 區塊 2 (Y: 32-63)</option>
-                                    <option value="q3">1/4 區塊 3 (Y: 64-95)</option>
-                                    <option value="q4">1/4 區塊 4 (Y: 96-128)</option>
-                                    <option value="custom">-- 自訂區域 --</option>
-                                </select>
-                            </div>
-                            <div class="form-grid">
-                                <div class="form-group"><label>最小 X</label><input type="number" id="task-reg-min-x" class="form-control" value="0"></div>
-                                <div class="form-group"><label>最小 Z (Y軸)</label><input type="number" id="task-reg-min-z" class="form-control" value="0"></div>
-                                <div class="form-group"><label>最大 X</label><input type="number" id="task-reg-max-x" class="form-control" value="128"></div>
-                                <div class="form-group"><label>最大 Z (Y軸)</label><input type="number" id="task-reg-max-z" class="form-control" value="128"></div>
-                            </div>
-                        </div>
-
-                        <h2>2. 指派執行機器人</h2>
-                        <div class="settings-section">
-                            <p style="font-size: 0.9em; color: #aaa; margin-top: 0;">系統將自動平分 128x128 區域給所選的在線機器人。</p>
-                            <div class="bot-checkbox-list" id="task-bot-list"></div>
-                        </div>
-
-                        <h2>3. 額外設定 (替換方塊)</h2>
-                        <div class="settings-section">
+                            
+                            <h3>投影檔案佇列</h3>
                             <div class="table-container">
-                                <table>
-                                    <thead><tr><th>原始方塊</th><th>替換為</th><th>操作</th></tr></thead>
-                                    <tbody id="task-replace-body"></tbody>
+                                <table style="margin-bottom: 10px;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 50px;">順序</th>
+                                            <th>投影檔案 (.nbt)</th>
+                                            <th style="width: 120px;">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="task-queue-body">
+                                        <!-- 動態產生任務列 -->
+                                    </tbody>
                                 </table>
                             </div>
-                            <button class="btn-add" onclick="addTaskReplaceRow()">+ 新增替換項目</button>
+                            <button class="btn-add" onclick="window.targetQueueInput=null; openFileBrowser();">+ 選擇並新增投影檔案</button>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 15px;">
+                                <input type="checkbox" id="auto-next-task" style="width: auto;" checked>
+                                <span style="font-weight: bold; color: #f1c40f;">自動執行任務佇列中的下一項任務</span>
+                            </label>
                         </div>
+
+                        <h3>總工作區域限制 (協作時會以此範圍進行均分)</h3>
+                        <div class="form-group">
+                            <label>區域預設快速選擇 (按 Y 軸劃分)</label>
+                            <select id="task-region-preset" class="form-control" onchange="applyTaskRegionPreset(this.value)">
+                                <option value="full">完整區域 (0-128)</option>
+                                <option value="h1">1/2 上半部 (Y: 0-63)</option>
+                                <option value="h2">1/2 下半部 (Y: 64-128)</option>
+                                <option value="q1">1/4 區塊 1 (Y: 0-31)</option>
+                                <option value="q2">1/4 區塊 2 (Y: 32-63)</option>
+                                <option value="q3">1/4 區塊 3 (Y: 64-95)</option>
+                                <option value="q4">1/4 區塊 4 (Y: 96-128)</option>
+                                <option value="custom">-- 自訂區域 --</option>
+                            </select>
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group"><label>最小 X</label><input type="number" id="task-reg-min-x" class="form-control" value="0"></div>
+                            <div class="form-group"><label>最小 Z (Y軸)</label><input type="number" id="task-reg-min-z" class="form-control" value="0"></div>
+                            <div class="form-group"><label>最大 X</label><input type="number" id="task-reg-max-x" class="form-control" value="128"></div>
+                            <div class="form-group"><label>最大 Z (Y軸)</label><input type="number" id="task-reg-max-z" class="form-control" value="128"></div>
+                        </div>
+
+                        <h3>指派執行任務的機器人</h3>
+                        <div id="task-bot-list" class="bot-checkbox-group">
+                            <!-- 動態填充在線機器人勾選框 -->
+                        </div>
+
+                        <h3>材料替換列表</h3>
+                        <div class="table-container">
+                            <table>
+                                <thead><tr><th>原始材料</th><th>替換後材料</th><th>操作</th></tr></thead>
+                                <tbody id="task-replace-body"></tbody>
+                            </table>
+                        </div>
+                        <button class="btn-add" onclick="addTaskReplaceRow()">+ 新增替換規則</button>
                     </div>
 
                     <!-- 自動存圖設定 -->
@@ -342,12 +366,19 @@
     <!-- 檔案瀏覽器 Modal -->
     <div id="file-modal" class="modal">
         <div class="modal-content">
-            <div class="modal-header"><h2>選擇投影檔</h2><button class="btn-danger" onclick="closeFileModal()">關閉</button></div>
+            <div class="modal-header">
+                <h2>選擇投影檔 (可多選)</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-add" onclick="selectAllFiles()">全選</button>
+                    <button class="save-btn" onclick="confirmBatchSelection()" style="padding: 5px 15px;">確認選擇</button>
+                    <button class="btn-danger" onclick="closeFileModal()">關閉</button>
+                </div>
+            </div>
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <input type="text" id="browser-path-input" class="form-control" style="flex: 1;" placeholder="輸入目錄路徑...">
                 <button onclick="loadFiles(document.getElementById('browser-path-input').value)">前往</button>
             </div>
-            <div id="file-list" class="file-list"></div>
+            <div id="file-list" class="file-list" style="max-height: 400px; overflow-y: auto; margin-top: 10px; border: 1px solid #444; border-radius: 4px;"></div>
         </div>
     </div>
 

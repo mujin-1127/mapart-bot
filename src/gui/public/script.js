@@ -111,6 +111,7 @@ socket.on('all_status', (data) => {
     allStatus = data;
     updateUI();
     updateSidebarStatus();
+    updateFloatingTaskList(); // 同步更新浮動清單
 });
 
 socket.on('msa_code', (data) => {
@@ -405,19 +406,93 @@ function switchTab(tabId, el) {
     if (tabId === 'schematic-settings') loadTaskConfigs();
 }
 
+// --- 任務佇列與設定邏輯 ---
+// 輔助函式：取得簡化顯示路徑 (前兩層目錄 + 檔名)
+function getShortPath(fullPath) {
+    if (!fullPath) return "未選擇檔案";
+    const parts = fullPath.split(/[\\/]/);
+    return parts.slice(-3).join('/'); // 取最後三個部分 (例如 dir1/dir2/file.nbt)
+}
+
+function addTaskToQueue(fullPath = "") {
+    const tbody = document.getElementById('task-queue-body');
+    const rowCount = tbody.children.length;
+    const tr = document.createElement('tr');
+    tr.className = 'queue-row';
+    
+    const displayName = getShortPath(fullPath);
+
+    tr.innerHTML = `
+        <td class="queue-index">${rowCount + 1}</td>
+        <td>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <span class="q-display-name" title="${fullPath}" style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; color: #eee; font-size: 0.9em;">
+                    ${displayName}
+                </span>
+                <input type="hidden" class="q-filename" value="${fullPath}">
+                <button class="mini-btn" onclick="browseFileForQueue(this)">更換</button>
+            </div>
+        </td>
+        <td>
+            <div style="display: flex; gap: 5px;">
+                <button class="mini-btn" onclick="moveQueueRow(this, -1)">↑</button>
+                <button class="mini-btn" onclick="moveQueueRow(this, 1)">↓</button>
+                <button class="mini-btn btn-danger" onclick="this.closest('tr').remove(); updateQueueIndices();">✕</button>
+            </div>
+        </td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function browseFileForQueue(btn) {
+    // 修正: 更換時要找到隱藏的 input 而非按鈕前面的元素 (現在前面是 span)
+    window.targetQueueInput = btn.parentElement.querySelector('.q-filename');
+    window.targetDisplayName = btn.parentElement.querySelector('.q-display-name');
+    openFileBrowser();
+}
+
+function updateQueueIndices() {
+    document.querySelectorAll('.queue-index').forEach((td, i) => td.innerText = i + 1);
+}
+
+function moveQueueRow(btn, dir) {
+    const row = btn.closest('tr');
+    if (dir === -1 && row.previousElementSibling) row.parentNode.insertBefore(row, row.previousElementSibling);
+    if (dir === 1 && row.nextElementSibling) row.parentNode.insertBefore(row.nextElementSibling, row);
+    updateQueueIndices();
+}
+
 async function loadTaskConfigs() {
     try {
-        // 1. 取得全域最新一次佈署的任務設定
         const res = await fetch(`/api/global/config/mapart`);
         const lastTask = await res.json();
         window.lastTask = lastTask;
         
+        // 記憶最後路徑
+        if (lastTask && lastTask.lastBrowserPath) {
+            currentBrowserPath = lastTask.lastBrowserPath;
+        }
+
+        // 載入全域放置點
         if (lastTask && lastTask.schematic) {
-            document.getElementById('task-schematic-filename').value = lastTask.schematic.filename || "";
             document.getElementById('task-pos-x').value = lastTask.schematic.placementPoint_x || 0;
             document.getElementById('task-pos-y').value = lastTask.schematic.placementPoint_y || 100;
             document.getElementById('task-pos-z').value = lastTask.schematic.placementPoint_z || 0;
         }
+
+        // 載入任務佇列
+        const tbody = document.getElementById('task-queue-body');
+        tbody.innerHTML = '';
+        if (lastTask && lastTask.queue && lastTask.queue.length > 0) {
+            lastTask.queue.forEach(q => addTaskToQueue(q.filename));
+        } else if (lastTask && lastTask.schematic) {
+            addTaskToQueue(lastTask.schematic.filename);
+        }
+
+        if (lastTask && lastTask.queue) {
+            document.getElementById('auto-next-task').checked = lastTask.autoNext ?? true;
+        }
+
         if (lastTask && lastTask.workRegion) {
             document.getElementById('task-reg-min-x').value = lastTask.workRegion.minX ?? 0;
             document.getElementById('task-reg-min-z').value = lastTask.workRegion.minZ ?? 0;
@@ -426,40 +501,26 @@ async function loadTaskConfigs() {
         }
         if (lastTask && lastTask.save) {
             document.getElementById('save-warp').value = lastTask.save.warp || "";
-            
             if (lastTask.save.empty_map_chest) {
                 const c = lastTask.save.empty_map_chest;
-                document.getElementById('save-empty-x').value = c[0] ?? 0;
-                document.getElementById('save-empty-y').value = c[1] ?? 0;
-                document.getElementById('save-empty-z').value = c[2] ?? 0;
-                document.getElementById('save-empty-f').value = c[3] || "N";
-                document.getElementById('save-empty-bf').value = c[4] || "bN";
+                document.getElementById('save-empty-x').value = c[0]; document.getElementById('save-empty-y').value = c[1]; document.getElementById('save-empty-z').value = c[2];
+                document.getElementById('save-empty-f').value = c[3]; document.getElementById('save-empty-bf').value = c[4];
             }
             if (lastTask.save.filled_map_chest) {
                 const c = lastTask.save.filled_map_chest;
-                document.getElementById('save-filled-x').value = c[0] ?? 0;
-                document.getElementById('save-filled-y').value = c[1] ?? 0;
-                document.getElementById('save-filled-z').value = c[2] ?? 0;
-                document.getElementById('save-filled-f').value = c[3] || "N";
-                document.getElementById('save-filled-bf').value = c[4] || "bN";
+                document.getElementById('save-filled-x').value = c[0]; document.getElementById('save-filled-y').value = c[1]; document.getElementById('save-filled-z').value = c[2];
+                document.getElementById('save-filled-f').value = c[3]; document.getElementById('save-filled-bf').value = c[4];
             }
             if (lastTask.save.cartography_table) {
                 const c = lastTask.save.cartography_table;
-                document.getElementById('save-carto-x').value = c[0] ?? 0;
-                document.getElementById('save-carto-y').value = c[1] ?? 0;
-                document.getElementById('save-carto-z').value = c[2] ?? 0;
-                document.getElementById('save-carto-f').value = c[3] || "N";
-                document.getElementById('save-carto-bf').value = c[4] || "bN";
+                document.getElementById('save-carto-x').value = c[0]; document.getElementById('save-carto-y').value = c[1]; document.getElementById('save-carto-z').value = c[2];
+                document.getElementById('save-carto-f').value = c[3]; document.getElementById('save-carto-bf').value = c[4];
             }
             if (lastTask.save.glass_pane_chest) {
                 const c = lastTask.save.glass_pane_chest;
-                document.getElementById('save-glass-x').value = c[0] ?? 0;
-                document.getElementById('save-glass-y').value = c[1] ?? 0;
-                document.getElementById('save-glass-z').value = c[2] ?? 0;
-                document.getElementById('save-glass-f').value = c[3] || "N";
-                document.getElementById('save-glass-bf').value = c[4] || "bN";
+                document.getElementById('save-glass-x').value = c[0]; document.getElementById('save-glass-y').value = c[1]; document.getElementById('save-glass-z').value = c[2];
+                document.getElementById('save-glass-f').value = c[3]; document.getElementById('save-glass-bf').value = c[4];
             }
-            
             document.getElementById('save-offset-x').value = lastTask.save.center_offset_x ?? 64;
             document.getElementById('save-offset-z').value = lastTask.save.center_offset_z ?? 64;
             document.getElementById('auto-save-after-build').checked = !!lastTask.save.autoSaveAfterBuild;
@@ -469,37 +530,178 @@ async function loadTaskConfigs() {
             document.getElementById('clear-home-cmd').value = lastTask.clear.home_cmd || "";
             if (lastTask.clear.button) {
                 const b = lastTask.clear.button;
-                document.getElementById('clear-btn-x').value = b[0] ?? 0;
-                document.getElementById('clear-btn-y').value = b[1] ?? 0;
-                document.getElementById('clear-btn-z').value = b[2] ?? 0;
-                document.getElementById('clear-btn-f').value = b[3] || "bN";
+                document.getElementById('clear-btn-x').value = b[0]; document.getElementById('clear-btn-y').value = b[1]; document.getElementById('clear-btn-z').value = b[2];
+                document.getElementById('clear-btn-f').value = b[3];
             }
             document.getElementById('clear-offset-x').value = lastTask.clear.center_offset_x ?? 64;
             document.getElementById('clear-offset-z').value = lastTask.clear.center_offset_z ?? 64;
         }
-        if (lastTask) {
-            renderTaskReplaceTable(lastTask.replaceMaterials || []);
-        }
+        if (lastTask) renderTaskReplaceTable(lastTask.replaceMaterials || []);
 
-        // 2. 勾選機器人：根據 lastTask.botIds 來勾選
         const botsRes = await fetch('/api/bots');
         const bots = await botsRes.json();
-        
-        // 確保清單存在
         updateTaskBotList(bots);
-
         const selectedBots = lastTask?.botIds || [];
         for (const id of bots) {
             const chk = document.querySelector(`.task-bot-chk[value="${id}"]`);
             if (chk) chk.checked = selectedBots.includes(id);
         }
 
-        // 3. 載入材料站設定 (全域設定)
         const resS = await fetch(`/api/global/config/station`);
         const stCfg = await resS.json();
         document.getElementById('st-warp').value = stCfg.stationWarp || "";
         renderMaterialsTable(stCfg.materials || []);
+        
+        updateFloatingTaskList(); // 更新浮動列表
     } catch (e) { console.error("載入任務設定出錯:", e); }
+}
+
+async function saveLastPath(path) {
+    try {
+        const res = await fetch(`/api/global/config/mapart`);
+        const fullCfg = await res.json();
+        if (fullCfg.lastBrowserPath === path) return;
+        fullCfg.lastBrowserPath = path;
+        await fetch(`/api/global/config/mapart`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fullCfg)
+        });
+    } catch (e) { console.error("儲存路徑失敗:", e); }
+}
+
+async function saveAllSettings() {
+    try {
+        const posX = parseInt(document.getElementById('task-pos-x').value);
+        const posY = parseInt(document.getElementById('task-pos-y').value);
+        const posZ = parseInt(document.getElementById('task-pos-z').value);
+
+        showToast("正在儲存所有設定...", "warning", 1000);
+        await saveGlobalStationConfig(true); 
+        const res = await fetch(`/api/global/config/mapart`);
+        const fullCfg = await res.json();
+
+        // 讀取佇列並套用全域座標
+        const queue = Array.from(document.querySelectorAll('.queue-row')).map(tr => ({
+            filename: tr.querySelector('.q-filename').value.trim(),
+            x: posX,
+            y: posY,
+            z: posZ
+        })).filter(q => q.filename);
+
+        if (queue.length === 0) return showToast("任務佇列不能為空！", "error");
+
+        fullCfg.queue = queue;
+        fullCfg.autoNext = document.getElementById('auto-next-task').checked;
+        fullCfg.schematic = {
+            filename: queue[0].filename,
+            placementPoint_x: posX,
+            placementPoint_y: posY,
+            placementPoint_z: posZ
+        };
+
+        fullCfg.save = {
+            warp: document.getElementById('save-warp').value.trim(),
+            empty_map_chest: [parseInt(document.getElementById('save-empty-x').value), parseInt(document.getElementById('save-empty-y').value), parseInt(document.getElementById('save-empty-z').value), document.getElementById('save-empty-f').value, document.getElementById('save-empty-bf').value],
+            filled_map_chest: [parseInt(document.getElementById('save-filled-x').value), parseInt(document.getElementById('save-filled-y').value), parseInt(document.getElementById('save-filled-z').value), document.getElementById('save-filled-f').value, document.getElementById('save-filled-bf').value],
+            cartography_table: [parseInt(document.getElementById('save-carto-x').value), parseInt(document.getElementById('save-carto-y').value), parseInt(document.getElementById('save-carto-z').value), document.getElementById('save-carto-f').value, document.getElementById('save-carto-bf').value],
+            glass_pane_chest: [parseInt(document.getElementById('save-glass-x').value), parseInt(document.getElementById('save-glass-y').value), parseInt(document.getElementById('save-glass-z').value), document.getElementById('save-glass-f').value, document.getElementById('save-glass-bf').value],
+            center_offset_x: parseInt(document.getElementById('save-offset-x').value),
+            center_offset_z: parseInt(document.getElementById('save-offset-z').value),
+            autoSaveAfterBuild: document.getElementById('auto-save-after-build').checked,
+            autoClearAfterSave: document.getElementById('auto-clear-after-save').checked
+        };
+
+        fullCfg.clear = {
+            home_cmd: document.getElementById('clear-home-cmd').value.trim(),
+            button: [parseInt(document.getElementById('clear-btn-x').value), parseInt(document.getElementById('clear-btn-y').value), parseInt(document.getElementById('clear-btn-z').value), document.getElementById('clear-btn-f').value],
+            center_offset_x: parseInt(document.getElementById('clear-offset-x').value),
+            center_offset_z: parseInt(document.getElementById('clear-offset-z').value)
+        };
+
+        const selectedBots = Array.from(document.querySelectorAll('.task-bot-chk:checked')).map(cb => cb.value);
+        if (selectedBots.length === 0) return showToast('請至少選擇一個機器人！', 'error');
+
+        fullCfg.workRegion = {
+            minX: parseInt(document.getElementById('task-reg-min-x').value),
+            minZ: parseInt(document.getElementById('task-reg-min-z').value),
+            maxX: parseInt(document.getElementById('task-reg-max-x').value),
+            maxZ: parseInt(document.getElementById('task-reg-max-z').value)
+        };
+        fullCfg.replaceMaterials = Array.from(document.querySelectorAll('#task-replace-body tr')).map(tr => [tr.querySelector('.rep-from').value.trim(), tr.querySelector('.rep-to').value.trim()]).filter(r => r[0] && r[1]);
+        fullCfg.botIds = selectedBots;
+
+        const saveRes = await fetch(`/api/global/config/mapart`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fullCfg) });
+        if (saveRes.ok) {
+            socket.emit('deploy_task', { filename: fullCfg.schematic.filename, pos: { x: posX, y: posY, z: posZ }, region: fullCfg.workRegion, replaceMaterials: fullCfg.replaceMaterials, botIds: selectedBots });
+            showToast('所有設定已成功儲存並同步部署！', 'success', 3000);
+            setTimeout(loadTaskConfigs, 300);
+        } else {
+            showToast('儲存失敗', 'error');
+        }
+    } catch (e) { console.error(e); showToast('儲存過程中發生錯誤', 'error'); }
+}
+
+function toggleTaskPanel() {
+    const panel = document.getElementById('floating-task-panel');
+    const btn = document.getElementById('show-task-btn');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'flex';
+        btn.style.display = 'none';
+    } else {
+        panel.style.display = 'none';
+        btn.style.display = 'flex';
+    }
+}
+
+function updateFloatingTaskList() {
+    const listDiv = document.getElementById('floating-task-list');
+    if (!window.lastTask || !window.lastTask.queue) return;
+    
+    listDiv.innerHTML = '';
+    window.lastTask.queue.forEach((task, i) => {
+        const div = document.createElement('div');
+        div.className = `floating-item ${i === 0 ? 'active' : ''}`;
+        const filename = task.filename.split(/[\\/]/).pop();
+        div.innerHTML = `
+            <div class="task-name">${i + 1}. ${filename}</div>
+            <div class="task-meta">放置點: ${task.x}, ${task.y}, ${task.z}</div>
+            ${i === 0 ? '<div class="task-meta" style="color: #3498db;">▶ 目前任務</div>' : ''}
+        `;
+        listDiv.appendChild(div);
+    });
+}
+
+function selectFile(p) {
+    if (window.targetQueueInput) {
+        window.targetQueueInput.value = p;
+        if (window.targetDisplayName) {
+            window.targetDisplayName.innerText = getShortPath(p);
+            window.targetDisplayName.title = p;
+        }
+        window.targetQueueInput = null;
+        window.targetDisplayName = null;
+    }
+    closeFileModal();
+}
+
+async function saveGlobalStationConfig(silent = false) {
+    try {
+        const oldConfigRes = await fetch(`/api/global/config/station?t=${Date.now()}`, { cache: "no-store" });
+        let oldConfig = await oldConfigRes.json();
+        const newConfig = {
+            ...oldConfig,
+            stationWarp: document.getElementById('st-warp').value,
+            offset: { "N": [0, 1, -3], "S": [0, 1, 3], "W": [-3, 1, 0], "E": [3, 1, 0], "bN": [0, 1, -2], "bS": [0, 1, 2], "bW": [-2, 1, 0], "bE": [2, 1, 0] },
+            materials: Array.from(document.querySelectorAll('#st-materials-body tr')).map(tr => [ tr.querySelector('.mat-name').value, [ parseInt(tr.querySelector('.mat-x').value), parseInt(tr.querySelector('.mat-y').value), parseInt(tr.querySelector('.mat-z').value), tr.querySelector('.mat-f').value, tr.querySelector('.mat-bf').value ] ])
+        };
+        await fetch(`/api/global/config/station`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newConfig) });
+        if (!silent) showToast('材料站設定已儲存 (含自動校正 Offset)');
+    } catch (e) {
+        console.error(e);
+        if (!silent) showToast('儲存失敗', 'error');
+        throw e;
+    }
 }
 
 function updateTaskBotList(bots) {
@@ -515,15 +717,11 @@ function updateTaskBotList(bots) {
     }
 }
 
-// --- 帳號編輯 Modal ---
 function openAccountModal(botId = null) {
     const modal = document.getElementById('account-modal');
     const userInput = document.getElementById('acc-modal-user');
     const authSelect = document.getElementById('acc-modal-auth');
-    
-    // 儲存當前正在編輯的原始 ID，以便儲存時比對（如果是編輯模式）
     window.currentEditingBotId = botId;
-
     if (botId) {
         const acc = window.allAccounts.find(a => a.id === botId);
         userInput.value = (acc && acc.username) || botId;
@@ -538,26 +736,12 @@ function closeAccountModal() { document.getElementById('account-modal').style.di
 async function saveAccountFromModal() {
     const username = document.getElementById('acc-modal-user').value.trim();
     const auth = document.getElementById('acc-modal-auth').value;
-    
     if (!username) return showToast("請填寫帳號！", "error");
-    
-    // 使用 username 直接作為 ID
     const id = username;
-
     let newAccounts = [...window.allAccounts];
-    
-    if (window.currentEditingBotId) {
-        // 編輯模式：移除舊的，加入新的（或更新）
-        newAccounts = newAccounts.filter(a => a.id !== window.currentEditingBotId);
-    }
-    
-    // 檢查新的 ID 是否衝突（除非是同一個）
-    if (newAccounts.some(a => a.id === id)) {
-        return showToast("此帳號已存在！", "error");
-    }
-
+    if (window.currentEditingBotId) newAccounts = newAccounts.filter(a => a.id !== window.currentEditingBotId);
+    if (newAccounts.some(a => a.id === id)) return showToast("此帳號已存在！", "error");
     newAccounts.push({ id, username, auth });
-
     const res = await fetch('/api/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newAccounts) });
     if (res.ok) { showToast("儲存成功，機器人清單已更新"); closeAccountModal(); refreshBotList(); }
 }
@@ -566,8 +750,6 @@ async function deleteBotAccount(botId) {
     const res = await fetch('/api/accounts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newAccounts) });
     if (res.ok) { showToast(`已刪除機器人「${botId}」`); refreshBotList(); }
 }
-
-// --- 核心控制 ---
 function startBot(exclusive, botId = null) { 
     const id = botId || currentBotId;
     if (id) socket.emit('start_bot', { botId: id, exclusive }); 
@@ -584,183 +766,95 @@ function allBotsCmd(cmd) {
     onlineBots.forEach(botId => socket.emit('command', { botId, cmd }));
     showToast(`已對 ${onlineBots.length} 個在線機器人發送「${cmd}」指令`);
 }
-
-// --- 檔案與材料站 ---
 function openFileBrowser() {
-    const currentFile = document.getElementById('task-schematic-filename').value;
+    const currentFile = ""; // 簡化
     let pathToShow = currentBrowserPath;
-    
-    if (currentFile && currentFile.trim() !== "") {
-        // 如果有填寫路徑，嘗試提取其目錄部分 (支援 \ 與 /)
-        const lastSlash = Math.max(currentFile.lastIndexOf('/'), currentFile.lastIndexOf('\\'));
-        if (lastSlash !== -1) {
-            pathToShow = currentFile.substring(0, lastSlash);
-        }
-    }
-    
     document.getElementById('file-modal').style.display = 'block'; 
     loadFiles(pathToShow); 
 }
 function closeFileModal() { document.getElementById('file-modal').style.display = 'none'; }
+
 async function loadFiles(path) {
     const res = await fetch(`/api/utils/list-files?path=${encodeURIComponent(path)}`);
     const data = await res.json();
-    currentBrowserPath = data.currentDir; document.getElementById('browser-path-input').value = data.currentDir;
-    const list = document.getElementById('file-list'); list.innerHTML = '';
-    if (data.currentDir !== data.parentDir) { const div = document.createElement('div'); div.className='file-item'; div.innerText='📁 ..'; div.onclick=()=>loadFiles(data.parentDir); list.appendChild(div); }
-    data.items.forEach(i => { const div = document.createElement('div'); div.className='file-item'; div.innerText=(i.isDirectory?'📁 ':'📄 ')+i.name; div.onclick=()=>i.isDirectory?loadFiles(i.fullPath):selectFile(i.fullPath); list.appendChild(div); });
-}
-function selectFile(p) { document.getElementById('task-schematic-filename').value = p; closeFileModal(); }
+    currentBrowserPath = data.currentDir; 
+    document.getElementById('browser-path-input').value = data.currentDir;
+    
+    // 儲存最後訪問的路徑到伺服器
+    saveLastPath(data.currentDir);
 
-async function saveAllSettings() {
-    try {
-        showToast("正在儲存所有設定...", "warning", 1000);
+    const list = document.getElementById('file-list'); 
+    list.innerHTML = '';
+    
+    // 上一層目錄
+    if (data.currentDir !== data.parentDir) { 
+        const div = document.createElement('div'); 
+        div.className = 'file-item'; 
+        div.innerHTML = `<span style="flex: 1;">📁 ..</span>`;
+        div.onclick = () => loadFiles(data.parentDir); 
+        list.appendChild(div); 
+    }
+    
+    // 檔案與資料夾列表
+    data.items.forEach(i => { 
+        const div = document.createElement('div'); 
+        div.className = 'file-item'; 
         
-        // 1. 儲存材料站設定 (station.json)
-        await saveGlobalStationConfig(true); 
-        
-        // 2. 儲存自動存圖與清理設定到 mapart.json (不直接呼叫舊函式以免重複讀寫)
-        const res = await fetch(`/api/global/config/mapart`);
-        const fullCfg = await res.json();
-
-        // 更新 save 部分
-        fullCfg.save = {
-            warp: document.getElementById('save-warp').value.trim(),
-            empty_map_chest: [
-                parseInt(document.getElementById('save-empty-x').value),
-                parseInt(document.getElementById('save-empty-y').value),
-                parseInt(document.getElementById('save-empty-z').value),
-                document.getElementById('save-empty-f').value,
-                document.getElementById('save-empty-bf').value
-            ],
-            filled_map_chest: [
-                parseInt(document.getElementById('save-filled-x').value),
-                parseInt(document.getElementById('save-filled-y').value),
-                parseInt(document.getElementById('save-filled-z').value),
-                document.getElementById('save-filled-f').value,
-                document.getElementById('save-filled-bf').value
-            ],
-            cartography_table: [
-                parseInt(document.getElementById('save-carto-x').value),
-                parseInt(document.getElementById('save-carto-y').value),
-                parseInt(document.getElementById('save-carto-z').value),
-                document.getElementById('save-carto-f').value,
-                document.getElementById('save-carto-bf').value
-            ],
-            glass_pane_chest: [
-                parseInt(document.getElementById('save-glass-x').value),
-                parseInt(document.getElementById('save-glass-y').value),
-                parseInt(document.getElementById('save-glass-z').value),
-                document.getElementById('save-glass-f').value,
-                document.getElementById('save-glass-bf').value
-            ],
-            center_offset_x: parseInt(document.getElementById('save-offset-x').value),
-            center_offset_z: parseInt(document.getElementById('save-offset-z').value),
-            autoSaveAfterBuild: document.getElementById('auto-save-after-build').checked,
-            autoClearAfterSave: document.getElementById('auto-clear-after-save').checked
-        };
-
-        // 更新 clear 部分
-        fullCfg.clear = {
-            home_cmd: document.getElementById('clear-home-cmd').value.trim(),
-            button: [
-                parseInt(document.getElementById('clear-btn-x').value),
-                parseInt(document.getElementById('clear-btn-y').value),
-                parseInt(document.getElementById('clear-btn-z').value),
-                document.getElementById('clear-btn-f').value
-            ],
-            center_offset_x: parseInt(document.getElementById('clear-offset-x').value),
-            center_offset_z: parseInt(document.getElementById('clear-offset-z').value)
-        };
-
-        // 更新投影與分工設定 (同步執行 deploySchematicTask 的部分邏輯)
-        const selectedBots = Array.from(document.querySelectorAll('.task-bot-chk:checked')).map(cb => cb.value);
-        if (selectedBots.length === 0) {
-            showToast('請至少選擇一個機器人！', 'error');
-            return;
-        }
-
-        fullCfg.schematic = {
-            filename: document.getElementById('task-schematic-filename').value,
-            placementPoint_x: parseInt(document.getElementById('task-pos-x').value),
-            placementPoint_y: parseInt(document.getElementById('task-pos-y').value),
-            placementPoint_z: parseInt(document.getElementById('task-pos-z').value)
-        };
-        fullCfg.workRegion = {
-            minX: parseInt(document.getElementById('task-reg-min-x').value),
-            minZ: parseInt(document.getElementById('task-reg-min-z').value),
-            maxX: parseInt(document.getElementById('task-reg-max-x').value),
-            maxZ: parseInt(document.getElementById('task-reg-max-z').value)
-        };
-        fullCfg.replaceMaterials = Array.from(document.querySelectorAll('#task-replace-body tr')).map(tr => [
-            tr.querySelector('.rep-from').value.trim(),
-            tr.querySelector('.rep-to').value.trim()
-        ]).filter(r => r[0] && r[1]);
-        fullCfg.botIds = selectedBots;
-
-        // 統一儲存回 mapart.json
-        const saveRes = await fetch(`/api/global/config/mapart`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(fullCfg)
-        });
-
-        if (saveRes.ok) {
-            // 發送部署訊號
-            socket.emit('deploy_task', {
-                filename: fullCfg.schematic.filename,
-                pos: { x: fullCfg.schematic.placementPoint_x, y: fullCfg.schematic.placementPoint_y, z: fullCfg.schematic.placementPoint_z },
-                region: fullCfg.workRegion,
-                replaceMaterials: fullCfg.replaceMaterials,
-                botIds: selectedBots
-            });
-            
-            showToast('所有設定已成功儲存並同步部署！', 'success', 3000);
-            
-            // 重新讀取設定以更新介面
-            setTimeout(loadTaskConfigs, 300);
+        if (i.isDirectory) {
+            div.innerHTML = `<span style="flex: 1;">📁 ${i.name}</span>`;
+            div.onclick = () => loadFiles(i.fullPath);
         } else {
-            showToast('儲存失敗', 'error');
+            // 檔案顯示勾選框
+            div.innerHTML = `
+                <input type="checkbox" class="file-select-chk" value="${i.fullPath}" onclick="event.stopPropagation()">
+                <span style="flex: 1; margin-left: 10px;">📄 ${i.name}</span>
+            `;
+            // 點擊整行也可以切換勾選 (除非點到 checkbox 本身)
+            div.onclick = (e) => {
+                const chk = div.querySelector('.file-select-chk');
+                if (e.target !== chk) chk.checked = !chk.checked;
+            };
         }
-
-    } catch (e) {
-        console.error(e);
-        showToast('儲存過程中發生錯誤', 'error');
-    }
+        list.appendChild(div); 
+    });
 }
 
-async function saveGlobalStationConfig(silent = false) {
-    try {
-        // 1. 先讀取舊設定以保留未在 GUI 顯示的欄位 (如 stationName, overfull 等)
-        const oldConfigRes = await fetch(`/api/global/config/station?t=${Date.now()}`, { cache: "no-store" });
-        let oldConfig = await oldConfigRes.json();
+function selectAllFiles() {
+    const chks = document.querySelectorAll('.file-select-chk');
+    const anyUnchecked = Array.from(chks).some(c => !c.checked);
+    chks.forEach(c => c.checked = anyUnchecked);
+}
 
-        const newConfig = {
-            ...oldConfig,
-            stationWarp: document.getElementById('st-warp').value,
-            // 強制存入指定的 offset 設定
-            offset: {
-                "N": [0, 1, -3],
-                "S": [0, 1, 3],
-                "W": [-3, 1, 0],
-                "E": [3, 1, 0],
-                "bN": [0, 1, -2],
-                "bS": [0, 1, 2],
-                "bW": [-2, 1, 0],
-                "bE": [2, 1, 0]
-            },
-            materials: Array.from(document.querySelectorAll('#st-materials-body tr')).map(tr => [
-                tr.querySelector('.mat-name').value,
-                [ parseInt(tr.querySelector('.mat-x').value), parseInt(tr.querySelector('.mat-y').value), parseInt(tr.querySelector('.mat-z').value), tr.querySelector('.mat-f').value, tr.querySelector('.mat-bf').value ]
-            ])
-        };
-        await fetch(`/api/global/config/station`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newConfig) });
-        if (!silent) showToast('材料站設定已儲存 (含自動校正 Offset)');
-    } catch (e) {
-        console.error(e);
-        if (!silent) showToast('儲存失敗', 'error');
-        throw e;
+function confirmBatchSelection() {
+    const selectedPaths = Array.from(document.querySelectorAll('.file-select-chk:checked')).map(c => c.value);
+    
+    if (selectedPaths.length === 0) {
+        showToast("請先勾選檔案！", "warning");
+        return;
     }
+
+    if (window.targetQueueInput) {
+        // 如果是更換單一檔案
+        window.targetQueueInput.value = selectedPaths[0];
+        if (window.targetDisplayName) {
+            window.targetDisplayName.innerText = getShortPath(selectedPaths[0]);
+            window.targetDisplayName.title = selectedPaths[0];
+        }
+        
+        // 如果同時勾選了多個，則將剩下的新增到後方
+        for (let i = 1; i < selectedPaths.length; i++) {
+            addTaskToQueue(selectedPaths[i]);
+        }
+        window.targetQueueInput = null;
+        window.targetDisplayName = null;
+    } else {
+        // 否則全部新增為新行
+        selectedPaths.forEach(p => addTaskToQueue(p));
+    }
+    
+    updateQueueIndices();
+    closeFileModal();
+    showToast(`已批次加入 ${selectedPaths.length} 個檔案`);
 }
 
 function renderMaterialsTable(list) { const tbody = document.getElementById('st-materials-body'); tbody.innerHTML = ''; list.forEach(m => { const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control mat-name" value="${m[0]}"></td><td><input type="number" class="form-control mat-x" style="width:80px" value="${m[1][0]}"></td><td><input type="number" class="form-control mat-y" style="width:80px" value="${m[1][1]}"></td><td><input type="number" class="form-control mat-z" style="width:80px" value="${m[1][2]}"></td><td><input type="text" class="form-control mat-f" style="width:60px" value="${m[1][3]}"></td><td><input type="text" class="form-control mat-bf" style="width:60px" value="${m[1][4]}"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`; tbody.appendChild(tr); }); }
@@ -779,47 +873,23 @@ function applyTaskRegionPreset(preset) {
         case 'q3':    setReg(0, 64, 128, 95); break;
         case 'q4':    setReg(0, 96, 128, 128); break;
     }
-    function setReg(x1, z1, x2, z2) {
-        minX.value = x1; minZ.value = z1; maxX.value = x2; maxZ.value = z2;
-    }
+    function setReg(x1, z1, x2, z2) { minX.value = x1; minZ.value = z1; maxX.value = x2; maxZ.value = z2; }
 }
-
 function renderTaskReplaceTable(list) { const tbody = document.getElementById('task-replace-body'); tbody.innerHTML = ''; list.forEach(r => addTaskReplaceRow(r[0], r[1])); }
 function addTaskReplaceRow(f="", t="") { const tr = document.createElement('tr'); tr.innerHTML=`<td><input type="text" class="form-control rep-from" value="${f}"></td><td><input type="text" class="form-control rep-to" value="${t}"></td><td><button class="btn-danger" onclick="this.parentElement.parentElement.remove()">刪除</button></td>`; document.getElementById('task-replace-body').appendChild(tr); }
-
 function singleBotSave() {
-    console.log('執行 singleBotSave...');
     const assignedBots = window.lastTask?.botIds || [];
     const onlineBots = Object.keys(allStatus).filter(id => allStatus[id].status === 'online');
-    
-    console.log('被指派機器人:', assignedBots);
-    console.log('在線機器人:', onlineBots);
-
-    // 優先從被指派的人中選一個在線的
     const targetId = assignedBots.find(id => onlineBots.includes(id)) || onlineBots[0];
-    
-    if (!targetId) {
-        console.warn('找不到可用的機器人');
-        return showToast('目前無在線機器人可執行存圖', 'warning');
-    }
-    
-    console.log('選擇執行機器人:', targetId);
+    if (!targetId) return showToast('目前無在線機器人可執行存圖', 'warning');
     socket.emit('command', { botId: targetId, cmd: 'mp save' });
     showToast(`已指派機器人「${targetId}」執行存圖任務`);
 }
-
 function singleBotClear() {
-    console.log('執行 singleBotClear...');
     const assignedBots = window.lastTask?.botIds || [];
     const onlineBots = Object.keys(allStatus).filter(id => allStatus[id].status === 'online');
-    
-    // 優先從被指派的人中選第一個（因為 clear 指令內也會判定 workerIndex === 0）
     const targetId = assignedBots.find(id => onlineBots.includes(id)) || onlineBots[0];
-    
-    if (!targetId) {
-        return showToast('目前無在線機器人可執行清理', 'warning');
-    }
-    
+    if (!targetId) return showToast('目前無在線機器人可執行清理', 'warning');
     socket.emit('command', { botId: targetId, cmd: 'mp clear' });
     showToast(`已指派機器人「${targetId}」執行清理任務 (僅第一位機器人有效)`);
 }

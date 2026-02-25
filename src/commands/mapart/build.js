@@ -18,7 +18,6 @@ module.exports = {
         let mapart_build_cfg_cache;
         let mapart_global_cfg;
         try {
-            // 現在統一讀取全域 mapart.json
             mapart_build_cfg_cache = await readConfig(configPath);
             mapart_global_cfg = mapart_build_cfg_cache; 
         } catch (e) {
@@ -26,7 +25,6 @@ module.exports = {
             return;
         }
 
-        // 動態計算 worker_id 與 worker_count
         const botIds = mapart_build_cfg_cache.botIds || [];
         const workerIndex = botIds.indexOf(bot_id);
         
@@ -41,7 +39,6 @@ module.exports = {
         
         const stationFile = mapart_build_cfg_cache?.station || 'station.json';
         
-        // 將材料站的資料合併進 mapart_build_cfg_cache
         try {
             const stationConfig = await readConfig(`${process.cwd()}/config/global/${stationFile}`);
             if (stationConfig && stationConfig.offset) {
@@ -51,39 +48,17 @@ module.exports = {
             logger.warn(`無法讀取材料站設定檔 ${stationFile}: ${e.message}`);
         }
         
-        // 替換材料已經在全域設定裡，直接使用
         mapart_build_cfg_cache.replaceMaterials = mapart_build_cfg_cache.replaceMaterials || [];
 
         delete mapart_build_cfg_cache.open;
         delete mapart_build_cfg_cache.wrap;
 
-        // Flag parse
-        let FLAG_autonext = false;
-        let FLAG_autonext_value = '';
         let FLAG_disableWebHookNotification = false;
-        let auto_regex = /^(\d+)_(\d+)$/;
-        
         for (let i = 0; i < task.content.length; i++) {
-            if (!task.content[i].startsWith('-')) continue;
-            switch (task.content[i]) {
-                case '-a':
-                case '-auto':
-                    FLAG_autonext = true;
-                    const match = task.content[i + 1]?.match(auto_regex);
-                    if (match) {
-                        FLAG_autonext_value = task.content[i + 1];
-                        i++;
-                    }
-                    break;
-                case '-n':
-                    FLAG_disableWebHookNotification = true;
-                    break;
-                default:
-                    break;
-            }
+            if (task.content[i] === '-n') FLAG_disableWebHookNotification = true;
         }
 
-        // --- 新增：建造前清理背包 (ALL BOT) ---
+        // --- 建造前清理背包 ---
         await clearInventory(bot, logger);
 
         try {
@@ -103,142 +78,62 @@ module.exports = {
         const mapartBuildUseTime = (build_result_query.endTime - build_result_query.startTime) / 1000;
         logger.info(`消耗時間 ${parseInt((mapartBuildUseTime / 3600))} h ${parseInt((mapartBuildUseTime % 3600) / 60)} m ${parseInt(mapartBuildUseTime % 60)} s`);
 
-        // Webhook and Auto-next logic
-        const f_reg = /_(\d+)_(\d+)$/;
-        let crt_filename_sp = mapart_build_cfg_cache.schematic.filename.split(".");
-        let crt_filename = crt_filename_sp[0];
-        const crt_filename_type = crt_filename_sp[1];
-        let crt_filename_match = crt_filename.match(f_reg);
-        crt_filename = crt_filename.replace(/_\d+_\d+$/, '');
-        
-        let crtFileIndex;
-        if (crt_filename_match) {
-            crtFileIndex = [parseInt(crt_filename_match[1]), parseInt(crt_filename_match[2])];
-        }
-
+        // Discord Webhook
         let webhookClient = null;
         const webhookURL = (mapart_global_cfg.discord_webhookURL || '').trim();
         if (webhookURL && webhookURL.startsWith('https://discord.com/api/webhooks/')) {
-            try { webhookClient = new WebhookClient({ url: webhookURL }); } catch (e) { /* 無效 URL */ }
+            try { webhookClient = new WebhookClient({ url: webhookURL }); } catch (e) { }
         }
 
         if (!FLAG_disableWebHookNotification && webhookClient) {
             const embed = gen_mapartFinishEmbed(bot, mapart_build_cfg_cache, build_result_query, mapartBuildUseTime);
-            let wh = {
+            webhookClient.send({
                 username: bot.username,
                 avatarURL: `https://mc-heads.net/avatar/${bot.username}`,
                 embeds: [embed]
-            };
-            
-            if (bot.debugMode) {
-                // ... debug info logic ...
-            }
-            
-            webhookClient.send(wh).catch(e => logger.error(`Webhook 發送失敗: ${e.message}`));
+            }).catch(e => logger.error(`Webhook 發送失敗: ${e.message}`));
         }
 
-        if (FLAG_autonext) {
-            let nextIndex = [crtFileIndex[0], crtFileIndex[1]];
-            let inc = [1, 0];
-            if (FLAG_autonext_value) {
-                const sp = FLAG_autonext_value.split("_");
-                if (sp.length === 2) {
-                    inc[0] = parseInt(sp[0]);
-                    inc[1] = parseInt(sp[1]);
-                }
-            }
-            nextIndex[0] += inc[0];
-            nextIndex[1] += inc[1];
+        // --- 核心：全員完成後的鏈條邏輯 ---
+        const webServer = bot.centralWebServer;
+        let allBotsFinished = true;
 
-            const nextFilename = `${crt_filename}_${nextIndex[0]}_${nextIndex[1]}.${crt_filename_type}`;
-            
-            if (fs.existsSync(nextFilename)) {
-                logger.info(`[AutoNext] 發現下一個區塊: ${nextFilename}`);
-                
-                // 更新設定檔
-                try {
-                    const fullCfg = await readConfig(configPath);
-                    fullCfg.schematic.filename = nextFilename;
-                    await saveConfig(configPath, fullCfg);
-                } catch (e) {
-                    logger.error(`[AutoNext] 更新設定檔失敗: ${e.message}`);
-                    return;
+        if (webServer) {
+            for (const id of botIds) {
+                const instance = webServer.botInstances.get(id);
+                let bc = instance?.bot?.sharedState?.build_cache || instance?.sharedState?.build_cache;
+                if (!bc || bc.endTime === -1) {
+                    allBotsFinished = false;
+                    logger.info(`[AutoNext] 等待其他機器人完成: ${id} 尚未結束`);
+                    break;
                 }
-                
-                // 延遲啟動下一個任務
-                setTimeout(async () => {
-                    try {
-                        logger.info(`[AutoNext] 正在啟動自動建造任務...`);
-                        const context = { source: task.source, minecraftUser: task.minecraftUser || '' };
-                        const cmdMgr = require('../CommandManager');
-                        await cmdMgr.dispatch(bot, ["build", "-a", FLAG_autonext_value, FLAG_disableWebHookNotification ? "-n" : ""].filter(Boolean), context);
-                    } catch (e) {
-                        logger.error(`[AutoNext] 自動建造啟動或執行失敗: ${e.message}`);
-                    }
-                }, 10000);
-                return; // 啟動下一個任務，不觸發存圖
-            } else {
-                logger.info(`[AutoNext] 未發現檔案: ${nextFilename}，自動建造結束。`);
             }
+        } else {
+            if (workerIndex !== 0) allBotsFinished = false;
         }
 
-        // --- 觸發自動存圖邏輯 (單次建造或序列最後一次) ---
-        if (mapart_global_cfg.save && mapart_global_cfg.save.autoSaveAfterBuild) {
-            const webServer = bot.centralWebServer;
-            let allBotsFinished = true;
-
-            if (webServer) {
-                // 檢查所有參與此任務的機器人是否都已完成
-                for (const id of botIds) {
-                    const instance = webServer.botInstances.get(id);
-                    let bc = null;
-                    if (instance) {
-                        if (instance.bot && instance.bot.sharedState) {
-                            bc = instance.bot.sharedState.build_cache;
-                        } else {
-                            bc = instance.sharedState?.build_cache;
-                        }
-                    }
-
-                    if (!bc || bc.endTime === -1) {
-                        allBotsFinished = false;
-                        logger.info(`[AutoSave] 等待其他機器人完成: ${id} 尚未結束`);
-                        break;
-                    }
-                }
-            } else {
-                if (workerIndex !== 0) allBotsFinished = false;
-            }
-
-            if (allBotsFinished) {
-                // 防止重複觸發：使用一個全域鎖定（在 WebServer 的共享狀態中）
+        if (allBotsFinished) {
+            // 只有第一位機器人負責啟動後續流程 (存圖、清理或下一個任務)
+            if (workerIndex === 0) {
+                // 防止重複觸發
                 const lockKey = `autosave_lock_${mapart_global_cfg.task_group_id || 'default'}`;
                 if (webServer && webServer.globalMapartCfg) {
-                    if (webServer.globalMapartCfg[lockKey]) {
-                        logger.info(`[AutoSave] 存圖任務已在執行中，跳過重複觸發。`);
-                        return;
-                    }
+                    if (webServer.globalMapartCfg[lockKey]) return;
                     webServer.globalMapartCfg[lockKey] = true;
-                    // 1 分鐘後自動解鎖，防止意外卡死
                     setTimeout(() => { delete webServer.globalMapartCfg[lockKey]; }, 60000);
                 }
-                
-                const targetId = botIds[0];
-                const targetInstance = webServer ? webServer.botInstances.get(targetId) : null;
-                const targetBot = targetInstance ? targetInstance.bot : (workerIndex === 0 ? bot : null);
 
-                if (targetBot && targetBot.entity) {
-                    logger.info(`[AutoSave] 檢測到全體建造完成，指派機器人「${targetId}」於 10 秒後開始存圖流程...`);
-                    setTimeout(async () => {
-                        try {
-                            const cmdMgr = require('../CommandManager');
-                            await cmdMgr.dispatch(targetBot, ["save"], { source: task.source });
-                        } catch (e) {
-                            logger.error(`[AutoSave] 自動啟動存圖失敗: ${e.message}`);
-                        }
-                    }, 10000);
+                if (mapart_global_cfg.save && mapart_global_cfg.save.autoSaveAfterBuild) {
+                    logger.info(`[AutoNext] 檢測到全體建造完成，啟動自動存圖流程...`);
+                    const cmdMgr = require('../CommandManager');
+                    setTimeout(() => cmdMgr.dispatch(bot, ["save"], { source: task.source }), 10000);
+                } else if (mapart_global_cfg.autoNext) {
+                    // 只有在開啟 autoNext 時才檢查下一個任務
+                    logger.info(`[AutoNext] 檢測到全體建造完成，檢查任務佇列...`);
+                    const { tryTriggerNextTask } = require('./clear');
+                    setTimeout(() => tryTriggerNextTask(bot, task.source), 5000);
                 } else {
-                    logger.warn(`[AutoSave] 檢測到全體完成，但主要機器人 ${targetId} 不在線，無法執行自動存圖。`);
+                    logger.info(`[AutoNext] 建造完成，自動下一個任務已關閉。`);
                 }
             }
         }
@@ -249,29 +144,13 @@ function gen_mapartFinishEmbed(bot, cfg, result, useTime) {
     let iconurl = `https://mc-heads.net/avatar/${bot.username}`;
     return {
         color: 0x0099ff,
-        title: `${cfg.schematic.filename} 建造完成`,
-        author: {
-            name: bot.username,
-            icon_url: iconurl,
-        },
-        thumbnail: {
-            url: iconurl,
-        },
+        title: `${cfg.schematic.filename.split(/[\\/]/).pop()} 建造完成`,
+        author: { name: bot.username, icon_url: iconurl },
+        thumbnail: { url: iconurl },
         fields: [
-            {
-                name: 'Placement Origin',
-                value: `X:\`${result.placement_origin.x}\` Y:\`${result.placement_origin.y}\` Z:\`${result.placement_origin.z}\``,
-            },
-            {
-                name: '消耗時間',
-                value: `${parseInt((useTime / 3600))} h ${parseInt((useTime % 3600) / 60)} m ${parseInt(useTime % 60)} s`,
-                inline: true
-            },
-            {
-                name: 'Speed',
-                value: `${Math.round((result.totalBlocks / (useTime / 3600)) * 10) / 10} Blocks / h`,
-                inline: true
-            }
+            { name: 'Placement Origin', value: `X:\`${result.placement_origin.x}\` Y:\`${result.placement_origin.y}\` Z:\`${result.placement_origin.z}\`` },
+            { name: '消耗時間', value: `${parseInt((useTime / 3600))} h ${parseInt((useTime % 3600) / 60)} m ${parseInt(useTime % 60)} s`, inline: true },
+            { name: 'Speed', value: `${Math.round((result.totalBlocks / (useTime / 3600)) * 10) / 10} Blocks / h`, inline: true }
         ]
     };
 }
