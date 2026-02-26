@@ -25,6 +25,7 @@ module.exports = {
             return;
         }
         
+        if (!mapart_set_cache.schematic) mapart_set_cache.schematic = {};
         mapart_set_cache.schematic.filename = filePath;
         
         // 如果有提供座標才更新，否則保留舊有座標

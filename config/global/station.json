@@ -8,11 +8,35 @@
     ],
     ["light_blue_carpet", [100165, 65, 100074, "W", "bE"]
     ],
+    ["light_blue_carpet", [100165, 66, 100072, "W", "bE"]
+    ],
+    ["light_blue_carpet", [100165, 66, 100073, "W", "bE"]
+    ],
+    ["light_blue_carpet", [100165, 66, 100074, "W", "bE"]
+    ],
+    ["light_blue_carpet", [100165, 67, 100072, "W", "bE"]
+    ],
+    ["light_blue_carpet", [100165, 67, 100073, "W", "bE"]
+    ],
+    ["light_blue_carpet", [100165, 67, 100074, "W", "bE"]
+    ],
     ["cyan_carpet", [100165, 65, 100075, "W", "bE"]
     ],
     ["cyan_carpet", [100165, 65, 100076, "W", "bE"]
     ],
     ["cyan_carpet", [100165, 65, 100077, "W", "bE"]
+    ],
+    ["cyan_carpet", [100165, 66, 100075, "W", "bE"]
+    ],
+    ["cyan_carpet", [100165, 66, 100076, "W", "bE"]
+    ],
+    ["cyan_carpet", [100165, 66, 100077, "W", "bE"]
+    ],
+    ["cyan_carpet", [100165, 67, 100075, "W", "bE"]
+    ],
+    ["cyan_carpet", [100165, 67, 100076, "W", "bE"]
+    ],
+    ["cyan_carpet", [100165, 67, 100077, "W", "bE"]
     ],
     ["blue_carpet", [100165, 65, 100078, "W", "bE"]
     ],
@@ -20,13 +44,53 @@
     ],
     ["blue_carpet", [100165, 65, 100080, "W", "bE"]
     ],
+    ["blue_carpet", [100165, 66, 100078, "W", "bE"]
+    ],
+    ["blue_carpet", [100165, 66, 100079, "W", "bE"]
+    ],
+    ["blue_carpet", [100165, 66, 100080, "W", "bE"]
+    ],
+    ["blue_carpet", [100165, 67, 100078, "W", "bE"]
+    ],
+    ["blue_carpet", [100165, 67, 100079, "W", "bE"]
+    ],
+    ["blue_carpet", [100165, 67, 100080, "W", "bE"]
+    ],
     ["purple_carpet", [100165, 65, 100081, "W", "bE"]
     ],
     ["purple_carpet", [100165, 65, 100082, "W", "bE"]
     ],
     ["purple_carpet", [100165, 65, 100083, "W", "bE"]
     ],
+    ["purple_carpet", [100165, 66, 100081, "W", "bE"]
+    ],
+    ["purple_carpet", [100165, 66, 100082, "W", "bE"]
+    ],
+    ["purple_carpet", [100165, 66, 100083, "W", "bE"]
+    ],
+    ["purple_carpet", [100165, 67, 100081, "W", "bE"]
+    ],
+    ["purple_carpet", [100165, 67, 100082, "W", "bE"]
+    ],
+    ["purple_carpet", [100165, 67, 100083, "W", "bE"]
+    ],
     ["magenta_carpet", [100165, 65, 100084, "W", "bE"]
+    ],
+    ["magenta_carpet", [100165, 65, 100085, "W", "bE"]
+    ],
+    ["magenta_carpet", [100165, 65, 100086, "W", "bE"]
+    ],
+    ["magenta_carpet", [100165, 66, 100084, "W", "bE"]
+    ],
+    ["magenta_carpet", [100165, 66, 100085, "W", "bE"]
+    ],
+    ["magenta_carpet", [100165, 66, 100086, "W", "bE"]
+    ],
+    ["magenta_carpet", [100165, 67, 100084, "W", "bE"]
+    ],
+    ["magenta_carpet", [100165, 67, 100085, "W", "bE"]
+    ],
+    ["magenta_carpet", [100165, 67, 100086, "W", "bE"]
     ],
     ["magenta_carpet", [100165, 65, 100085, "W", "bE"]
     ],
@@ -38,11 +102,35 @@
     ],
     ["pink_carpet", [100165, 65, 100089, "W", "bE"]
     ],
+    ["pink_carpet", [100165, 66, 100087, "W", "bE"]
+    ],
+    ["pink_carpet", [100165, 66, 100088, "W", "bE"]
+    ],
+    ["pink_carpet", [100165, 66, 100089, "W", "bE"]
+    ],
+    ["pink_carpet", [100165, 67, 100087, "W", "bE"]
+    ],
+    ["pink_carpet", [100165, 67, 100088, "W", "bE"]
+    ],
+    ["pink_carpet", [100165, 67, 100089, "W", "bE"]
+    ],
     ["red_carpet", [100165, 65, 100090, "W", "bE"]
     ],
     ["red_carpet", [100165, 65, 100091, "W", "bE"]
     ],
     ["red_carpet", [100165, 65, 100092, "W", "bE"]
+    ],
+    ["red_carpet", [100165, 66, 100090, "W", "bE"]
+    ],
+    ["red_carpet", [100165, 66, 100091, "W", "bE"]
+    ],
+    ["red_carpet", [100165, 66, 100092, "W", "bE"]
+    ],
+    ["red_carpet", [100165, 67, 100090, "W", "bE"]
+    ],
+    ["red_carpet", [100165, 67, 100091, "W", "bE"]
+    ],
+    ["red_carpet", [100165, 67, 100092, "W", "bE"]
     ],
     ["orange_carpet", [100165, 65, 100093, "W", "bE"]
     ],
@@ -50,11 +138,35 @@
     ],
     ["orange_carpet", [100165, 65, 100095, "W", "bE"]
     ],
+    ["orange_carpet", [100165, 66, 100093, "W", "bE"]
+    ],
+    ["orange_carpet", [100165, 66, 100094, "W", "bE"]
+    ],
+    ["orange_carpet", [100165, 66, 100095, "W", "bE"]
+    ],
+    ["orange_carpet", [100165, 67, 100093, "W", "bE"]
+    ],
+    ["orange_carpet", [100165, 67, 100094, "W", "bE"]
+    ],
+    ["orange_carpet", [100165, 67, 100095, "W", "bE"]
+    ],
     ["yellow_carpet", [100165, 65, 100096, "W", "bE"]
     ],
     ["yellow_carpet", [100165, 65, 100097, "W", "bE"]
     ],
     ["yellow_carpet", [100165, 65, 100098, "W", "bE"]
+    ],
+    ["yellow_carpet", [100165, 66, 100096, "W", "bE"]
+    ],
+    ["yellow_carpet", [100165, 66, 100097, "W", "bE"]
+    ],
+    ["yellow_carpet", [100165, 66, 100098, "W", "bE"]
+    ],
+    ["yellow_carpet", [100165, 67, 100096, "W", "bE"]
+    ],
+    ["yellow_carpet", [100165, 67, 100097, "W", "bE"]
+    ],
+    ["yellow_carpet", [100165, 67, 100098, "W", "bE"]
     ],
     ["lime_carpet", [100165, 65, 100099, "W", "bE"]
     ],
@@ -62,11 +174,35 @@
     ],
     ["lime_carpet", [100165, 65, 100101, "W", "bE"]
     ],
+    ["lime_carpet", [100165, 66, 100099, "W", "bE"]
+    ],
+    ["lime_carpet", [100165, 66, 100100, "W", "bE"]
+    ],
+    ["lime_carpet", [100165, 66, 100101, "W", "bE"]
+    ],
+    ["lime_carpet", [100165, 67, 100099, "W", "bE"]
+    ],
+    ["lime_carpet", [100165, 67, 100100, "W", "bE"]
+    ],
+    ["lime_carpet", [100165, 67, 100101, "W", "bE"]
+    ],
     ["green_carpet", [100165, 65, 100102, "W", "bE"]
     ],
     ["green_carpet", [100165, 65, 100103, "W", "bE"]
     ],
     ["green_carpet", [100165, 65, 100104, "W", "bE"]
+    ],
+    ["green_carpet", [100165, 66, 100102, "W", "bE"]
+    ],
+    ["green_carpet", [100165, 66, 100103, "W", "bE"]
+    ],
+    ["green_carpet", [100165, 66, 100104, "W", "bE"]
+    ],
+    ["green_carpet", [100165, 67, 100102, "W", "bE"]
+    ],
+    ["green_carpet", [100165, 67, 100103, "W", "bE"]
+    ],
+    ["green_carpet", [100165, 67, 100104, "W", "bE"]
     ],
     ["brown_carpet", [100165, 65, 100105, "W", "bE"]
     ],
@@ -74,11 +210,35 @@
     ],
     ["brown_carpet", [100165, 65, 100107, "W", "bE"]
     ],
+    ["brown_carpet", [100165, 66, 100105, "W", "bE"]
+    ],
+    ["brown_carpet", [100165, 66, 100106, "W", "bE"]
+    ],
+    ["brown_carpet", [100165, 66, 100107, "W", "bE"]
+    ],
+    ["brown_carpet", [100165, 67, 100105, "W", "bE"]
+    ],
+    ["brown_carpet", [100165, 67, 100106, "W", "bE"]
+    ],
+    ["brown_carpet", [100165, 67, 100107, "W", "bE"]
+    ],
     ["white_carpet", [100165, 65, 100108, "W", "bE"]
     ],
     ["white_carpet", [100165, 65, 100109, "W", "bE"]
     ],
     ["white_carpet", [100165, 65, 100110, "W", "bE"]
+    ],
+    ["white_carpet", [100165, 66, 100108, "W", "bE"]
+    ],
+    ["white_carpet", [100165, 66, 100109, "W", "bE"]
+    ],
+    ["white_carpet", [100165, 66, 100110, "W", "bE"]
+    ],
+    ["white_carpet", [100165, 67, 100108, "W", "bE"]
+    ],
+    ["white_carpet", [100165, 67, 100109, "W", "bE"]
+    ],
+    ["white_carpet", [100165, 67, 100110, "W", "bE"]
     ],
     ["light_gray_carpet", [100165, 65, 100111, "W", "bE"]
     ],
@@ -86,17 +246,53 @@
     ],
     ["light_gray_carpet", [100165, 65, 100113, "W", "bE"]
     ],
+    ["light_gray_carpet", [100165, 66, 100111, "W", "bE"]
+    ],
+    ["light_gray_carpet", [100165, 66, 100112, "W", "bE"]
+    ],
+    ["light_gray_carpet", [100165, 66, 100113, "W", "bE"]
+    ],
+    ["light_gray_carpet", [100165, 67, 100111, "W", "bE"]
+    ],
+    ["light_gray_carpet", [100165, 67, 100112, "W", "bE"]
+    ],
+    ["light_gray_carpet", [100165, 67, 100113, "W", "bE"]
+    ],
     ["gray_carpet", [100165, 65, 100114, "W", "bE"]
     ],
     ["gray_carpet", [100165, 65, 100115, "W", "bE"]
     ],
     ["gray_carpet", [100165, 65, 100116, "W", "bE"]
     ],
+    ["gray_carpet", [100165, 66, 100114, "W", "bE"]
+    ],
+    ["gray_carpet", [100165, 66, 100115, "W", "bE"]
+    ],
+    ["gray_carpet", [100165, 66, 100116, "W", "bE"]
+    ],
+    ["gray_carpet", [100165, 67, 100114, "W", "bE"]
+    ],
+    ["gray_carpet", [100165, 67, 100115, "W", "bE"]
+    ],
+    ["gray_carpet", [100165, 67, 100116, "W", "bE"]
+    ],
     ["black_carpet", [100165, 65, 100117, "W", "bE"]
     ],
     ["black_carpet", [100165, 65, 100118, "W", "bE"]
     ],
     ["black_carpet", [100165, 65, 100119, "W", "bE"]
+    ],
+    ["black_carpet", [100165, 66, 100117, "W", "bE"]
+    ],
+    ["black_carpet", [100165, 66, 100118, "W", "bE"]
+    ],
+    ["black_carpet", [100165, 66, 100119, "W", "bE"]
+    ],
+    ["black_carpet", [100165, 67, 100117, "W", "bE"]
+    ],
+    ["black_carpet", [100165, 67, 100118, "W", "bE"]
+    ],
+    ["black_carpet", [100165, 67, 100119, "W", "bE"]
     ]
   ],
   "offset": {

@@ -35,6 +35,11 @@ module.exports = {
         const saveCfg = cfg.save;
         const schCfg = cfg.schematic;
         
+        if (!schCfg || !schCfg.filename) {
+            logger.error("尚未設定藍圖或檔案路徑，無法執行存圖流程。");
+            return;
+        }
+
         // --- 第 0 階段：清理背包與舊地圖 ---
         setStatus("正在清理背包與舊地圖...");
         await clearInventory(bot, logger);

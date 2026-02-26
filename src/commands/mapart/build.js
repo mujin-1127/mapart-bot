@@ -37,6 +37,11 @@ module.exports = {
         mapart_build_cfg_cache.worker_count = botIds.length;
         mapart_build_cfg_cache.bot_id = bot_id;
 
+        if (!mapart_build_cfg_cache.schematic || !mapart_build_cfg_cache.schematic.filename) {
+            logger.error(`尚未設定藍圖檔案，無法開始建造！`);
+            return;
+        }
+
         if (bot.sharedState && bot.sharedState.build_cache) {
             bot.sharedState.build_cache.currentAction = "正在建造...";
         }

@@ -30,6 +30,12 @@ module.exports = {
         
         mapart_open_cfg_cache.worker_id = workerIndex;
         mapart_open_cfg_cache.worker_count = botIds.length;
+
+        if (!mapart_open_cfg_cache.schematic) {
+            logger.error("尚未設定藍圖位置，請先使用 set 指令或在網頁端設定。");
+            return;
+        }
+
         let stationConfig;
         if (mapart_open_cfg_cache["materialsMode"] == 'station') {
             const stationFile = mapart_open_cfg_cache?.station || 'station.json';

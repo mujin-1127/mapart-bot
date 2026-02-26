@@ -69,6 +69,11 @@ module.exports = {
         const clearCfg = cfg.clear;
         const schCfg = cfg.schematic;
 
+        if (!schCfg) {
+            logger.error("尚未設定藍圖位置，請先使用 set 指令或在網頁端設定。");
+            return;
+        }
+
         try {
             const centerX = schCfg.placementPoint_x + (clearCfg.center_offset_x || 64);
             const centerZ = schCfg.placementPoint_z + (clearCfg.center_offset_z || 64);
@@ -258,7 +263,10 @@ module.exports = {
 
             // 2. 如果佇列空了，代表全部結束
             if (cfg.queue.length === 0) {
-                cfg.schematic = null;
+                // 當佇列完成時，僅清空檔名，保留座標
+                if (cfg.schematic) {
+                    cfg.schematic.filename = null;
+                }
                 await saveConfig(configPath, cfg);
                 logger.info("--- [自動任務系統] 佇列中所有任務已完成！ ---");
                 

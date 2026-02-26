@@ -565,7 +565,7 @@ async function loadTaskConfigs() {
         tbody.innerHTML = '';
         if (lastTask && lastTask.queue && lastTask.queue.length > 0) {
             lastTask.queue.forEach(q => addTaskToQueue(q.filename));
-        } else if (lastTask && lastTask.schematic) {
+        } else if (lastTask && lastTask.schematic && lastTask.schematic.filename) {
             addTaskToQueue(lastTask.schematic.filename);
         }
 
